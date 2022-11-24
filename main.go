@@ -10,13 +10,13 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [256]*Person
+var people [200]*Person
 
 func run() {
 	rand.Seed(time.Now().Unix())
 	cfg := pixelgl.WindowConfig{
-		Title:  "Pixel Rocks!",
-		Bounds: pixel.R(0, 0, 1024, 768),
+		Title:  "Sociophysics Group 3 - Social Force Model",
+		Bounds: pixel.R(0, 0, 1200, 800),
 		VSync:  true,
 	}
 	win, err := pixelgl.NewWindow(cfg)
@@ -26,14 +26,16 @@ func run() {
 
 	for i := 0; i < len(people); i++ {
 		people[i] = newPerson(i)
-		people[i].Position = pixel.V(random(10, 250), random(10, 758))
-		people[i].DesiredSpeed = random(10., 20.)
-		people[i].Goal = pixel.V(random(750, 1014), random(10, 758))
+		people[i].Position = pixel.V(random(-600, -500), random(-400, 400))
+		people[i].DesiredSpeed = (rand.NormFloat64()*0.25 + 1.33) * 10
+		people[i].Goal = pixel.V(random(500, 600), random(-400, 400))
+		people[i].Radius = (rand.NormFloat64()*0.05 + 0.2) * 10
+		people[i].Mass = rand.NormFloat64()*10 + 70
 	}
 
 	imd := imdraw.New(nil)
 	// imd.Precision = 7
-	// imd.SetMatrix(pixel.IM.Moved(win.Bounds().Center()))
+	imd.SetMatrix(pixel.IM.Moved(win.Bounds().Center()))
 
 	last := time.Now()
 

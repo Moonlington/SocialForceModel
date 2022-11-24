@@ -34,9 +34,9 @@ func newPerson(id int) *Person {
 	p.Goal = pixel.V(500, 350)
 	p.DesiredSpeed = 13.3
 	p.Mass = 60.
-	p.alpha = 1.5
+	p.alpha = 1.
 
-	p.Radius = 10
+	p.Radius = 0.2
 
 	return p
 }
@@ -51,8 +51,9 @@ func (p *Person) checkBoundaries(b pixel.Vec) {
 }
 
 func (p *Person) willForce() pixel.Vec {
-	gw := math.Min(p.Mass*p.alpha*p.Position.To(p.Goal).Len(), p.Mass*p.alpha)
+	gw := p.Mass * p.alpha
 	Vd := p.Position.To(p.Goal).Unit().Scaled(p.DesiredSpeed)
+	Vd = Vd.Scaled(math.Min(1, p.Position.To(p.Goal).Len()/p.Radius))
 	f := Vd.Sub(p.Velocity).Scaled(gw)
 	return f
 }
@@ -141,18 +142,18 @@ func (p *Person) update(dt float64, others []*Person) {
 }
 
 func (p *Person) draw(imd *imdraw.IMDraw) {
-	imd.Color = colornames.Orange
+	imd.Color = colornames.Cyan
 	imd.Push(p.Position)
 	// if p.id == 1 {
 	imd.Circle(p.Radius, 1)
 	imd.Color = colornames.Lime
 	imd.Push(p.Position)
 	imd.Push(p.Position.Add(p.Velocity))
-	imd.Line(2)
+	imd.Line(1)
 	imd.Color = colornames.Yellow
 	imd.Push(p.Position)
 	imd.Push(p.Position.Add(p.sumForce.Scaled(1 / p.Mass)))
-	imd.Line(2)
+	imd.Line(1)
 	// } else {
 	// 	imd.Circle(p.Radius, 1)
 	// }
