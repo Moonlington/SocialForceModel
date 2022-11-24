@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
@@ -11,9 +12,8 @@ import (
 
 var people [256]*Person
 
-var dt = 1. / 60.
-
 func run() {
+	rand.Seed(time.Now().Unix())
 	cfg := pixelgl.WindowConfig{
 		Title:  "Pixel Rocks!",
 		Bounds: pixel.R(0, 0, 1024, 768),
@@ -25,27 +25,28 @@ func run() {
 	}
 
 	for i := 0; i < len(people); i++ {
-		people[i] = newPerson()
-		people[i].Position = pixel.V(random(10, 1014), random(10, 758))
-		people[i].Velocity = pixel.V(random(-50, 50), random(-50, 50))
+		people[i] = newPerson(i)
+		people[i].Position = pixel.V(random(10, 250), random(10, 758))
+		people[i].DesiredSpeed = random(10., 20.)
+		people[i].Goal = pixel.V(random(750, 1014), random(10, 758))
 	}
 
 	imd := imdraw.New(nil)
 	// imd.Precision = 7
 	// imd.SetMatrix(pixel.IM.Moved(win.Bounds().Center()))
 
+	last := time.Now()
+
 	for !win.Closed() {
 		imd.Clear()
 
+		dt := time.Since(last).Seconds()
+		last = time.Now()
+
 		for _, p := range people {
 			p.draw(imd)
-			if p.Position.X-10 <= 0 || p.Position.X+10 >= 1024 {
-				p.Velocity.X = -p.Velocity.X
-			}
-			if p.Position.Y-10 <= 0 || p.Position.Y+10 >= 768 {
-				p.Velocity.Y = -p.Velocity.Y
-			}
-			p.update(dt)
+			// p.checkBoundaries(win.Bounds().Max)
+			p.update(dt, people[:])
 		}
 
 		win.Clear(colornames.Black)
