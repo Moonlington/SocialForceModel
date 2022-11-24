@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/faiface/pixel"
@@ -35,7 +34,7 @@ func newPerson(id int) *Person {
 	p.Goal = pixel.V(500, 350)
 	p.DesiredSpeed = 13.3
 	p.Mass = 60.
-	p.alpha = 2.
+	p.alpha = 1.5
 
 	p.Radius = 10
 
@@ -72,6 +71,9 @@ func (p *Person) intermediateRangeForce(others []*Person) pixel.Vec {
 		rhot := t.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
 		rhon := n.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
 
+		// rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
+		// rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
+
 		f := t.Scaled(-fmax * (1 / (1 + math.Pow(rhot, 2)))).Add(n.Scaled(-fmax * (1 / (1 + math.Pow(rhon, 2)))))
 
 		sumForce = sumForce.Add(f)
@@ -107,20 +109,16 @@ func (p *Person) contactForce(others []*Person) pixel.Vec {
 
 		fmax := p.Mass * 8. * math.Max(p.alpha, o.alpha)
 		var f pixel.Vec
-		if rho < 1 {
-			f = p.Position.To(o.Position).Unit().Scaled(-fmax * (1 / (1 + math.Pow(rho, 2))))
-		} else {
+		if rho <= 1 {
 			f = p.Position.To(o.Position).Unit().Scaled(-2 * fmax * (1 / (1 + math.Pow(rho, 2))))
+		} else {
+			f = p.Position.To(o.Position).Unit().Scaled(-1 * fmax * (1 / (1 + math.Pow(rho, 2))))
 		}
 
 		sumForce = sumForce.Add(f)
 		t := p.Position.To(o.Position).Unit().Normal()
 		var ft pixel.Vec
-		if math.Signbit(t.Dot(p.Velocity.Sub(o.Velocity))) {
-			ft = t.Scaled(0.2 * f.Len() * 1)
-		} else {
-			ft = t.Scaled(0.2 * f.Len() * -1)
-		}
+		ft = t.Scaled(0.2 * f.Len() * 1)
 		sumForce = sumForce.Add(ft)
 	}
 	return sumForce
@@ -134,9 +132,9 @@ func (p *Person) update(dt float64, others []*Person) {
 	p.sumForce = p.sumForce.Add(p.nearRangeForce(others))
 	p.sumForce = p.sumForce.Add(p.contactForce(others))
 
-	if p.id == 0 {
-		fmt.Println(p.sumForce)
-	}
+	// if p.id == 0 {
+	// 	fmt.Println(p.sumForce)
+	// }
 
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
