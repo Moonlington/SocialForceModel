@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/faiface/pixel"
@@ -10,7 +11,8 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [200]*Person
+var people [500]*Person
+var obstacles []*Obstacle
 
 func run() {
 	rand.Seed(time.Now().Unix())
@@ -26,12 +28,16 @@ func run() {
 
 	for i := 0; i < len(people); i++ {
 		people[i] = newPerson(i)
-		people[i].Position = pixel.V(random(-600, -500), random(-400, 400))
-		people[i].DesiredSpeed = (rand.NormFloat64()*0.25 + 1.33) * 10
-		people[i].Goal = pixel.V(random(500, 600), random(-400, 400))
-		people[i].Radius = (rand.NormFloat64()*0.05 + 0.2) * 10
-		people[i].Mass = rand.NormFloat64()*10 + 70
+		people[i].Position = pixel.V(random(-500, -400), random(-350, 350))
+		people[i].DesiredSpeed = (rand.NormFloat64()*0.1 + 1.33) * 10
+		people[i].Goal = pixel.V(random(400, 500), random(-200, 200))
+		people[i].Radius = (rand.NormFloat64()*0.05 + 0.2) * 25
+		people[i].Mass = rand.NormFloat64()*5 + 70
+
+		people[i].wallThreshold = (rand.NormFloat64()*0.1 + 1) * 25
 	}
+
+	obstacles = append(obstacles, newObstacle(pixel.R(-50, -100, 50, 100), false))
 
 	imd := imdraw.New(nil)
 	// imd.Precision = 7
@@ -45,11 +51,20 @@ func run() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 
+		wg := new(sync.WaitGroup)
 		for _, p := range people {
-			p.draw(imd)
-			// p.checkBoundaries(win.Bounds().Max)
-			p.update(dt, people[:])
+			p.Draw(imd)
+			wg.Add(1)
+			go func(p *Person) {
+				defer wg.Done()
+				p.update(dt, people[:], obstacles[:])
+			}(p)
 		}
+		wg.Wait()
+
+		// for _, o := range obstacles {
+		// 	o.Draw(imd)
+		// }
 
 		win.Clear(colornames.Black)
 		imd.Draw(win)
