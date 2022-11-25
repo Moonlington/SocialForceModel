@@ -24,17 +24,17 @@ func newObstacle(r pixel.Rect, inner bool) *Obstacle {
 }
 
 func (o *Obstacle) Dist(p *Person) pixel.Vec {
-	wallCircle := pixel.C(p.Position, p.wallThreshold)
-	// fmt.Println(o, p)
-	dist := o.IntersectCircle(wallCircle)
-	if o.Inner {
-		return dist.Unit().Scaled(dist.Len() - p.wallThreshold)
-	} else {
-		if dist.Len() == 0 {
-			return dist.Unit().Scaled(math.Inf(1))
+	shortestVec := pixel.V(math.Inf(1), math.Inf(1))
+	for _, e := range o.Edges() {
+		distVec := p.Position.To(e.Closest(p.Position))
+		if shortestVec.Len() > distVec.Len() {
+			shortestVec = distVec
 		}
-		return dist.Unit().Scaled(p.wallThreshold - dist.Len())
 	}
+	if !o.Inner && o.Contains(p.Position) {
+		shortestVec = shortestVec.Scaled(-1)
+	}
+	return shortestVec
 }
 
 func (o *Obstacle) Draw(imd *imdraw.IMDraw) {

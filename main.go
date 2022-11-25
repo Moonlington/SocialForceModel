@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [500]*Person
+var people [512]*Person
 var obstacles []*Obstacle
 
 func run() {
@@ -26,18 +27,35 @@ func run() {
 		panic(err)
 	}
 
-	for i := 0; i < len(people); i++ {
+	for i := 0; i < len(people)/2; i++ {
 		people[i] = newPerson(i)
-		people[i].Position = pixel.V(random(-500, -400), random(-350, 350))
-		people[i].DesiredSpeed = (rand.NormFloat64()*0.1 + 1.33) * 10
-		people[i].Goal = pixel.V(random(400, 500), random(-200, 200))
-		people[i].Radius = (rand.NormFloat64()*0.05 + 0.2) * 25
-		people[i].Mass = rand.NormFloat64()*5 + 70
+		people[i].Position = pixel.V(random(-550, -450), random(-350, 350))
+		people[i].DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*10)
 
-		people[i].wallThreshold = (rand.NormFloat64()*0.1 + 1) * 25
+		people[i].Goals = []*Goal{newGoal(pixel.V(0, 0), 100, 0), newGoal(pixel.V(random(400, 500), random(-200, 200)), 100, 0)}
+
+		people[i].Radius = math.Max(.05, (rand.NormFloat64()*0.05+0.2)*25)
+		people[i].Mass = math.Max(45, rand.NormFloat64()*5+70)
+		people[i].wallThreshold = math.Max(people[i].Radius+0.05, (rand.NormFloat64()*0.1+2)*25)
 	}
 
-	obstacles = append(obstacles, newObstacle(pixel.R(-50, -100, 50, 100), false))
+	for i := len(people) / 2; i < len(people); i++ {
+		people[i] = newPerson(i)
+
+		people[i].Color = colornames.Magenta
+
+		people[i].Position = pixel.V(random(450, 550), random(-350, 350))
+		people[i].DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*10)
+
+		people[i].Goals = []*Goal{newGoal(pixel.V(0, 0), 100, 0), newGoal(pixel.V(random(-500, -400), random(-350, 350)), 100, 0)}
+
+		people[i].Radius = math.Max(.05, (rand.NormFloat64()*0.05+0.2)*25)
+		people[i].Mass = math.Max(45, rand.NormFloat64()*5+70)
+		people[i].wallThreshold = math.Max(people[i].Radius+0.05, (rand.NormFloat64()*0.1+2)*25)
+	}
+
+	obstacles = append(obstacles, newObstacle(pixel.R(-50, 100, 50, 500), false))
+	obstacles = append(obstacles, newObstacle(pixel.R(-50, -500, 50, -100), false))
 
 	imd := imdraw.New(nil)
 	// imd.Precision = 7
@@ -62,9 +80,9 @@ func run() {
 		}
 		wg.Wait()
 
-		// for _, o := range obstacles {
-		// 	o.Draw(imd)
-		// }
+		for _, o := range obstacles {
+			o.Draw(imd)
+		}
 
 		win.Clear(colornames.Black)
 		imd.Draw(win)
