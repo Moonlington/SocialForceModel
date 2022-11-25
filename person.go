@@ -156,7 +156,26 @@ func (p *Person) motionInhibition(obstacles []*Obstacle) {
 	}
 
 	// p.sumForce = p.sumForce.Sub(p.sumForce.Project(minDistVec))
-	p.Velocity = p.Velocity.Sub(p.Velocity.Project(minDistVec))
+	p.Velocity = p.Velocity.Project(minDistVec.Normal())
+}
+
+func (p *Person) fixCollision(obstacles []*Obstacle) {
+	minDistVec := pixel.V(math.Inf(1), math.Inf(1))
+	var closestObstacle Obstacle
+
+	for _, o := range obstacles {
+		d := o.Dist(p)
+		if minDistVec.Len() > d.Len() {
+			minDistVec = d
+			closestObstacle = *o
+		}
+	}
+
+	if minDistVec.Len() > p.Radius*.9 {
+		return
+	}
+
+	p.Position = p.Position.Add(pixel.C(p.Position, p.Radius).IntersectRect(closestObstacle.Rect))
 }
 
 func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
@@ -177,9 +196,11 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	// 	fmt.Println(p.sumForce)
 	// }
 
+	p.fixCollision(obstacles)
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
 	p.motionInhibition(obstacles)
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
+
 }
 
 func (p *Person) Draw(imd *imdraw.IMDraw) {
