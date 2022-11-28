@@ -3,9 +3,11 @@ package main
 import (
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
+	"github.com/faiface/pixel/pixelgl"
 	"golang.org/x/image/colornames"
 )
 
@@ -16,9 +18,7 @@ type Person struct {
 	Position pixel.Vec
 	Velocity pixel.Vec
 
-	Goals       []*Goal
-	CurrentGoal int
-	Loitered    float64
+	Behavior Behavior
 
 	Radius       float64
 	DesiredSpeed float64
@@ -39,40 +39,24 @@ func newPerson(id int) *Person {
 	p.Position = pixel.V(0, 0)
 	p.Velocity = pixel.V(0, 0)
 
-	p.Goals = []*Goal{newGoal(pixel.V(500, 350), 100, 0)}
-	p.CurrentGoal = 0
-	p.Loitered = 0.
+	p.Behavior = nil
 
-	p.DesiredSpeed = 13.3
-	p.Mass = 60.
+	p.DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*15)
+	p.Mass = rand.NormFloat64()*5 + 70
 	p.alpha = 1.
 
-	p.wallThreshold = 1.
-
-	p.Radius = 0.2
+	p.Radius = (rand.NormFloat64()*0.05 + 0.2) * 50
+	p.wallThreshold = math.Max(p.Radius+0.05, (rand.NormFloat64()*0.1+2)*50)
 
 	return p
 }
 
-func (p *Person) willForce(dt float64) pixel.Vec {
+func (p *Person) willForce(dt float64, target *Goal) pixel.Vec {
 	gw := p.Mass * p.alpha
-
-	if len(p.Goals) <= p.CurrentGoal {
+	if target == nil {
 		return pixel.V(0, 0).Sub(p.Velocity).Scaled(gw)
 	}
-
-	target := p.Goals[p.CurrentGoal].Target
-	Vd := p.Position.To(target).Unit().Scaled(p.DesiredSpeed)
-
-	if p.Position.To(target).Len() < p.Goals[p.CurrentGoal].Range {
-		Vd = pixel.V(0, 0)
-		if p.Goals[p.CurrentGoal].LoiterAfter >= p.Loitered {
-			p.Loitered += dt
-		} else {
-			p.Loitered = 0
-			p.CurrentGoal++
-		}
-	}
+	Vd := p.Position.To(target.Target).Unit().Scaled(p.DesiredSpeed)
 	return Vd.Sub(p.Velocity).Scaled(gw)
 }
 
@@ -181,7 +165,8 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	p.sumForce = pixel.V(0, 0)
 
-	p.sumForce = p.sumForce.Add(p.willForce(dt))
+	p.Behavior.Update(p, dt)
+	p.sumForce = p.sumForce.Add(p.willForce(dt, p.Behavior.GetGoal()))
 	for _, o := range others {
 		if o.id == p.id {
 			continue
@@ -203,10 +188,17 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 
 }
 
-func (p *Person) Draw(imd *imdraw.IMDraw) {
-	imd.Color = p.Color
-	imd.Push(p.Position)
-	imd.Circle(p.Radius, 1)
+func (p *Person) Draw(win *pixelgl.Window, imd *imdraw.IMDraw) {
+	if win.MousePosition().Sub(win.Bounds().Center()).To(p.Position).Len() < p.Radius {
+		imd.Color = colornames.Red
+		imd.Push(p.Position)
+		imd.Circle(p.Radius, 1)
+		p.DrawGoal(imd)
+	} else {
+		imd.Color = p.Color
+		imd.Push(p.Position)
+		imd.Circle(p.Radius, 1)
+	}
 
 	imd.Color = colornames.Lime
 	imd.Push(p.Position)
@@ -228,4 +220,16 @@ func (p *Person) Draw(imd *imdraw.IMDraw) {
 	// 	imd.Push(p.Goals[p.CurrentGoal].Target)
 	// 	imd.Line(1)
 	// }
+}
+
+// DrawGoal draws a line between the person and the goal
+func (p *Person) DrawGoal(imd *imdraw.IMDraw) {
+	goal := p.Behavior.GetGoal()
+	if goal == nil {
+		return
+	}
+	imd.Color = colornames.Lime
+	imd.Push(p.Position)
+	imd.Push(goal.Target)
+	imd.Line(1)
 }

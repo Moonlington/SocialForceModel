@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -12,14 +11,14 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [512]*Person
+var people [256]*Person
 var obstacles []*Obstacle
 
 func run() {
 	rand.Seed(time.Now().Unix())
 	cfg := pixelgl.WindowConfig{
 		Title:  "Sociophysics Group 3 - Social Force Model",
-		Bounds: pixel.R(0, 0, 1200, 800),
+		Bounds: pixel.R(0, 0, 1800, 800),
 		VSync:  true,
 	}
 	win, err := pixelgl.NewWindow(cfg)
@@ -29,33 +28,28 @@ func run() {
 
 	for i := 0; i < len(people)/2; i++ {
 		people[i] = newPerson(i)
-		people[i].Position = pixel.V(random(-550, -450), random(-350, 350))
-		people[i].DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*10)
-
-		people[i].Goals = []*Goal{newGoal(pixel.V(0, 0), 100, 0), newGoal(pixel.V(random(400, 500), random(-200, 200)), 100, 0)}
-
-		people[i].Radius = math.Max(.05, (rand.NormFloat64()*0.05+0.2)*25)
-		people[i].Mass = math.Max(45, rand.NormFloat64()*5+70)
-		people[i].wallThreshold = math.Max(people[i].Radius+0.05, (rand.NormFloat64()*0.1+2)*25)
+		people[i].Position = pixel.V(random(-700, -800), random(-350, 350))
+		people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(-350, 250), 100, 0), newGoal(pixel.V(random(700, 800), random(-350, 350)), 50, 0)))
 	}
 
 	for i := len(people) / 2; i < len(people); i++ {
 		people[i] = newPerson(i)
 
 		people[i].Color = colornames.Magenta
-
-		people[i].Position = pixel.V(random(450, 550), random(-350, 350))
-		people[i].DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*10)
-
-		people[i].Goals = []*Goal{newGoal(pixel.V(0, 0), 100, 0), newGoal(pixel.V(random(-500, -400), random(-350, 350)), 100, 0)}
-
-		people[i].Radius = math.Max(.05, (rand.NormFloat64()*0.05+0.2)*25)
-		people[i].Mass = math.Max(45, rand.NormFloat64()*5+70)
-		people[i].wallThreshold = math.Max(people[i].Radius+0.05, (rand.NormFloat64()*0.1+2)*25)
+		people[i].Position = pixel.V(random(800, 700), random(-350, 350))
+		people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(350, 250), 100, 0), newGoal(pixel.V(random(-800, -700), random(-350, 350)), 50, 0)))
 	}
 
-	obstacles = append(obstacles, newObstacle(pixel.R(-50, 100, 50, 500), false))
-	obstacles = append(obstacles, newObstacle(pixel.R(-50, -500, 50, -100), false))
+	// The last few from each group should follow the first person in their group
+	amount := 10
+	for i := 0; i < amount; i++ {
+		people[i].Color = colornames.Darkcyan
+		people[i].Behavior = NewFollowerBehavior(people[amount+1])
+		people[i+len(people)/2].Color = colornames.Darkmagenta
+		people[i+len(people)/2].Behavior = NewFollowerBehavior(people[len(people)/2+amount+1])
+	}
+
+	obstacles = append(obstacles, newObstacle(pixel.R(-300, -100, 300, 100), false)) // Kiosk
 
 	imd := imdraw.New(nil)
 	// imd.Precision = 7
@@ -71,7 +65,7 @@ func run() {
 
 		wg := new(sync.WaitGroup)
 		for _, p := range people {
-			p.Draw(imd)
+			p.Draw(win, imd)
 			wg.Add(1)
 			go func(p *Person) {
 				defer wg.Done()
