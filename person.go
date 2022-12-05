@@ -51,12 +51,12 @@ func newPerson(id int) *Person {
 	return p
 }
 
-func (p *Person) willForce(dt float64, target *Goal) pixel.Vec {
+func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
 	gw := p.Mass * p.alpha
-	if target == nil {
+	if target == p.Position {
 		return pixel.V(0, 0).Sub(p.Velocity).Scaled(gw)
 	}
-	Vd := p.Position.To(target.Target).Unit().Scaled(p.DesiredSpeed)
+	Vd := p.Position.To(target).Unit().Scaled(p.DesiredSpeed)
 	return Vd.Sub(p.Velocity).Scaled(gw)
 }
 
@@ -67,15 +67,18 @@ func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
 	n := p.Velocity.Normal().Unit()
 
 	dTm := -(p.Position.Sub(o.Position).Dot(p.Velocity.Sub(o.Velocity)) / p.Velocity.Sub(o.Velocity).Dot(p.Velocity.Sub(o.Velocity)))
-	if dTm < 0 || dTm > 10 {
+	if dTm <= 0 {
 		return pixel.V(0, 0)
 	}
+
+	rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
+	rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
 
 	// rhot := t.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
 	// rhon := n.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
 
-	rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
-	rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
+	// rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
+	// rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
 
 	return t.Scaled(-fmax * (1 / (1 + math.Pow(rhot, 2)))).Add(n.Scaled(-fmax * (1 / (1 + math.Pow(rhon, 2)))))
 }
@@ -162,11 +165,38 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 	p.Position = p.Position.Add(pixel.C(p.Position, p.Radius).IntersectRect(closestObstacle.Rect))
 }
 
+func (p *Person) kinematicConstraint(dt float64, others []*Person) {
+	xi := .25
+	for _, o := range others {
+		if o.id == p.id {
+			continue
+		}
+		var ds float64
+		if p.Velocity.Dot(o.Velocity) > 0 {
+			ds = xi*p.Radius + xi*o.Radius
+		} else if p.Velocity.Dot(o.Velocity) < 0 {
+			ds = xi*p.Radius + (1-xi)*o.Radius
+		} else {
+			return
+		}
+
+		pNewPosition := p.Position.Add(p.Velocity.Scaled(dt))
+		oNewPosition := o.Position.Add(o.Velocity.Scaled(dt))
+
+		dn := pNewPosition.To(oNewPosition).Len()
+		// dn := p.Position.To(o.Position).Len()
+
+		cr := math.Min(1, math.Max(0, (dn-ds)/ds))
+
+		distance := p.Position.To(o.Position)
+		p.Velocity = p.Velocity.Project(distance).Scaled(cr).Add(p.Velocity.Project(distance.Normal()))
+	}
+}
+
 func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	p.sumForce = pixel.V(0, 0)
 
-	p.Behavior.Update(p, dt)
-	p.sumForce = p.sumForce.Add(p.willForce(dt, p.Behavior.GetGoal()))
+	p.sumForce = p.sumForce.Add(p.willForce(dt, p.Behavior.GetTarget(p, dt)))
 	for _, o := range others {
 		if o.id == p.id {
 			continue
@@ -224,12 +254,9 @@ func (p *Person) Draw(win *pixelgl.Window, imd *imdraw.IMDraw) {
 
 // DrawGoal draws a line between the person and the goal
 func (p *Person) DrawGoal(imd *imdraw.IMDraw) {
-	goal := p.Behavior.GetGoal()
-	if goal == nil {
-		return
-	}
+	target := p.Behavior.GetTarget(p, 0)
 	imd.Color = colornames.Lime
 	imd.Push(p.Position)
-	imd.Push(goal.Target)
+	imd.Push(target)
 	imd.Line(1)
 }

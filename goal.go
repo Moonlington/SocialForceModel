@@ -9,7 +9,7 @@ type Goal struct {
 	LoiterAfter float64
 }
 
-func newGoal(target pixel.Vec, r, loiter float64) *Goal {
+func NewGoal(target pixel.Vec, r, loiter float64) *Goal {
 	return &Goal{Target: target, Range: r, LoiterAfter: loiter}
 }
 

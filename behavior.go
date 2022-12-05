@@ -1,79 +1,145 @@
 package main
 
+import (
+	"math/rand"
+
+	"github.com/faiface/pixel"
+)
+
 // Behavior defines the behavior of a person.
 type Behavior interface {
-	GetGoal() *Goal
-	Update(p *Person, dt float64)
+	GetTarget(p *Person, dt float64) pixel.Vec
+}
+
+// GoalBehavior defines the behavior of a person that goes to a goal.
+type GoalBehavior struct {
+	goal           *Goal
+	maxRangeFactor float64
+	closeEnough    bool
+	LoiterTime     float64
+}
+
+func NewGoalBehavior(goal *Goal) *GoalBehavior {
+	return &GoalBehavior{
+		goal:           goal,
+		maxRangeFactor: 1.5,
+		closeEnough:    false,
+	}
+}
+
+// SetMaxRangeFactor sets the max range factor.
+func (b *GoalBehavior) SetMaxRangeFactor(maxRangeFactor float64) {
+	b.maxRangeFactor = maxRangeFactor
+}
+
+// SetGoal sets the goal of the behavior.
+func (b *GoalBehavior) SetGoal(goal *Goal) {
+	b.goal = goal
+}
+
+// GetTarget gets the target of the behavior.
+func (b *GoalBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
+	if b.goal == nil {
+		return p.Position
+	}
+	if p.Position.To(b.goal.Target).Len() <= b.goal.Range {
+		b.closeEnough = true
+	}
+	if p.Position.To(b.goal.Target).Len() <= b.goal.Range*b.maxRangeFactor && b.closeEnough {
+		b.LoiterTime += dt
+		return p.Position
+	}
+	b.closeEnough = false
+	return b.goal.Target
+}
+
+// HasLoitered returns true if the person has loitered for the current goal.
+func (b *GoalBehavior) HasLoitered() bool {
+	return b.LoiterTime > b.goal.LoiterAfter
 }
 
 // FollowerBehavior defines the behavior of a person that follows a person.
 type FollowerBehavior struct {
-	Target *Person
-	Goal   *Goal
+	Target       *Person
+	Obstacles    []*Obstacle
+	lastSeen     pixel.Vec
+	goalBehavior *GoalBehavior
 }
 
-// NewFollowerBehavior creates a new follow behavior.
-func NewFollowerBehavior(target *Person) *FollowerBehavior {
-	return &FollowerBehavior{Target: target, Goal: newGoal(target.Position, 0, 0)}
-}
-
-// GetGoal returns the goal of the behavior.
-func (b *FollowerBehavior) GetGoal() *Goal {
-	return b.Goal
-}
-
-// Update updates the behavior.
-func (b *FollowerBehavior) Update(p *Person, dt float64) {
-	b.Goal = newGoal(b.Target.Position, 0, 0)
-	if p.Position.To(b.Target.Position).Len() <= 1.5*(p.Radius+b.Target.Radius) {
-		b.Goal = nil
+// NewFollowerBehavior creates a new follower behavior.
+func NewFollowerBehavior(target *Person, obstacles []*Obstacle) *FollowerBehavior {
+	return &FollowerBehavior{
+		Target:       target,
+		Obstacles:    obstacles,
+		goalBehavior: NewGoalBehavior(NewGoal(target.Position, 0, 0)),
 	}
-	return
 }
 
-// PathBehavior defines the behavior of a person that follows a path.
-type PathBehavior struct {
-	Path        *Path
-	CurrentGoal *Goal
-	LastGoal    *Goal
-	Loitered    float64
+func (b *FollowerBehavior) SetTarget(target *Person) {
+	b.Target = target
 }
 
-// NewPathBehavior creates a new path behavior.
-func NewPathBehavior(path *Path) *PathBehavior {
-	return &PathBehavior{Path: path, CurrentGoal: path.NextGoal()}
+func (b *FollowerBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
+	if b.Target == nil {
+		return p.Position
+	}
+	intersects := false
+	for _, obstacle := range b.Obstacles {
+		if obstacle.Inner {
+			continue
+		}
+		if obstacle.IntersectLine(pixel.L(p.Position, b.Target.Position)).Len() > 0 {
+			intersects = true
+			break
+		}
+	}
+	if !intersects {
+		b.lastSeen = b.Target.Position
+		b.goalBehavior.SetGoal(NewGoal(b.lastSeen, 1.5*(p.Radius+b.Target.Radius), 0))
+	}
+	return b.goalBehavior.GetTarget(p, dt)
 }
 
-// GetGoal returns the goal of the behavior.
-func (b *PathBehavior) GetGoal() *Goal {
-	return b.CurrentGoal
+// WanderBehavior defines the behavior of a person that walks to a random goal in sight
+type WanderBehavior struct {
+	WanderGoals  []*Goal
+	CurrentGoal  *Goal
+	Obstacles    []*Obstacle
+	goalBehavior *GoalBehavior
+}
+
+// NewWanderBehavior creates a new wander behavior.
+func NewWanderBehavior(obstacles []*Obstacle, wanderLocations ...*Goal) *WanderBehavior {
+	return &WanderBehavior{WanderGoals: wanderLocations, Obstacles: obstacles, goalBehavior: NewGoalBehavior(nil)}
 }
 
 // Update updates the behavior.
-func (b *PathBehavior) Update(p *Person, dt float64) {
-	if b.CurrentGoal != nil {
-		if p.Position.To(b.CurrentGoal.Target).Len() > b.CurrentGoal.Range {
-			return
-		}
+func (b *WanderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
+	if b.CurrentGoal == nil || b.goalBehavior.HasLoitered() {
+		b.goalBehavior.LoiterTime = 0
+		b.CurrentGoal = b.ChooseNextWanderLoaction(p)
+		b.goalBehavior.SetGoal(b.CurrentGoal)
+	}
+	return b.goalBehavior.GetTarget(p, dt)
+}
 
-		if b.CurrentGoal.LoiterAfter != 0 {
-			b.Loitered += dt
-			if b.Loitered <= b.CurrentGoal.LoiterAfter {
-				return
+// ChooseNextWanderLoaction chooses the next wander location.
+func (b *WanderBehavior) ChooseNextWanderLoaction(p *Person) *Goal {
+	var possibleGoals []*Goal
+	for _, goal := range b.WanderGoals {
+		intersects := false
+		for _, obstacle := range b.Obstacles {
+			if obstacle.Inner {
+				continue
+			}
+			if obstacle.IntersectLine(pixel.L(p.Position, goal.Target)).Len() > 0 {
+				intersects = true
+				break
 			}
 		}
-	}
-
-	if b.Path.IsEmpty() {
-		if b.LastGoal == nil && b.CurrentGoal != nil {
-			b.LastGoal = b.CurrentGoal
+		if !intersects {
+			possibleGoals = append(possibleGoals, goal)
 		}
-		b.CurrentGoal = nil
-		// If the person is far enough away from their last goal, set their current goal to their last goal
-		if b.LastGoal != nil && p.Position.To(b.LastGoal.Target).Len() > b.LastGoal.Range*2 {
-			b.CurrentGoal = b.LastGoal
-		}
-		return
 	}
-	b.CurrentGoal = b.Path.NextGoal()
+	return possibleGoals[rand.Intn(len(possibleGoals))]
 }
