@@ -11,8 +11,9 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [128]*Person
+var people [16]*Person
 var obstacles []*Obstacle
+var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](4, 4, -900, 900, -400, 400)
 
 func run() {
 	rand.Seed(time.Now().Unix())
@@ -30,9 +31,9 @@ func run() {
 	obstacles = append(obstacles, newObstacle(pixel.R(-875, -375, 875, 375), true))
 
 	wanderLocations := []*Goal{}
-	for i := 0; i < 10; i++ {
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(700, 800), random(-350, 350)), 50, 10))
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -700), random(-350, 350)), 50, 10))
+	for i := 0; i < 100; i++ {
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(700, 800), random(-350, 350)), 100, 10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -700), random(-350, 350)), 100, 10))
 	}
 	wanderLocations = append(wanderLocations, NewGoal(pixel.V(-350, 250), 100, 0), NewGoal(pixel.V(350, 250), 100, 0))
 
@@ -53,12 +54,16 @@ func run() {
 	}
 
 	// The last few from each group should follow the first person in their group
-	amount := 5
+	amount := 2
 	for i := 0; i < amount; i++ {
 		people[i].Color = colornames.Darkcyan
 		people[i].Behavior = NewFollowerBehavior(people[amount+1], obstacles)
 		people[i+len(people)/2].Color = colornames.Darkmagenta
 		people[i+len(people)/2].Behavior = NewFollowerBehavior(people[len(people)/2+amount+1], obstacles)
+	}
+
+	for _, person := range people {
+		emptybins.Add(person)
 	}
 
 	imd := imdraw.New(nil)
@@ -84,16 +89,7 @@ func run() {
 		}
 		wg.Wait()
 
-		for i := 0; i < 3; i++ {
-			for _, p := range people {
-				wg.Add(1)
-				go func(p *Person) {
-					defer wg.Done()
-					p.kinematicConstraint(dt, people[:])
-				}(p)
-			}
-			wg.Wait()
-		}
+		emptybins.Update()
 
 		for _, o := range obstacles {
 			o.Draw(imd)

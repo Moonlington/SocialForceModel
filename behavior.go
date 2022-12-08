@@ -69,7 +69,7 @@ type FollowerBehavior struct {
 // NewFollowerBehavior creates a new follower behavior.
 func NewFollowerBehavior(target *Person, obstacles []*Obstacle) *FollowerBehavior {
 	goalB := NewGoalBehavior(NewGoal(target.Position, 0, 0))
-	goalB.SetMaxRangeFactor(1.1)
+	goalB.SetMaxRangeFactor(2)
 	return &FollowerBehavior{
 		Target:       target,
 		Obstacles:    obstacles,
@@ -142,6 +142,9 @@ func (b *WanderBehavior) ChooseNextWanderLoaction(p *Person) *Goal {
 		if !intersects {
 			possibleGoals = append(possibleGoals, goal)
 		}
+	}
+	if len(possibleGoals) == 0 {
+		return nil
 	}
 	return possibleGoals[rand.Intn(len(possibleGoals))]
 }

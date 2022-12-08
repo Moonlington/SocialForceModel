@@ -11,6 +11,8 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+const SCALING float64 = 100.
+
 type Person struct {
 	id    int
 	Color color.RGBA
@@ -41,14 +43,19 @@ func newPerson(id int) *Person {
 
 	p.Behavior = nil
 
-	p.DesiredSpeed = math.Max(0.5, (rand.NormFloat64()*0.25+1.33)*15)
+	p.DesiredSpeed = math.Max(0.01, (rand.NormFloat64()*0.025+1.)*SCALING)
 	p.Mass = rand.NormFloat64()*5 + 70
+	// p.alpha = 1. * math.Sqrt(SCALING)
 	p.alpha = 1.
 
-	p.Radius = (rand.NormFloat64()*0.01 + 0.2) * 50
-	p.wallThreshold = math.Max(p.Radius+0.05, (rand.NormFloat64()*0.1+2)*50)
+	p.Radius = (rand.NormFloat64()*0.025 + 0.2) * SCALING
+	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*0.1+10.)*SCALING)
 
 	return p
+}
+
+func (p *Person) XY() (float64, float64) {
+	return p.Position.XY()
 }
 
 func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
@@ -61,7 +68,7 @@ func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
 }
 
 func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 2. * p.alpha
+	fmax := p.Mass * 8. * p.alpha
 
 	t := p.Velocity.Unit()
 	n := p.Velocity.Normal().Unit()
@@ -74,17 +81,11 @@ func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
 	rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
 	rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
 
-	// rhot := t.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
-	// rhon := n.Scaled(p.Position.Sub(o.Position).Len()).Len() / (p.Radius)
-
-	// rhot := p.Position.Sub(o.Position).Project(t).Len() / (p.Radius)
-	// rhon := p.Position.Sub(o.Position).Project(n).Len() / (p.Radius)
-
 	return t.Scaled(-fmax * (1 / (1 + math.Pow(rhot, 2)))).Add(n.Scaled(-fmax * (1 / (1 + math.Pow(rhon, 2)))))
 }
 
 func (p *Person) nearRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 4. * p.alpha
+	fmax := p.Mass * 16. * p.alpha
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius)
 	return p.Position.To(o.Position).Unit().Scaled(-fmax * (1 / (1 + math.Pow(rho, 2))))
 }
@@ -93,7 +94,7 @@ func (p *Person) contactForce(o *Person) pixel.Vec {
 	sumForce := pixel.V(0, 0)
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius + o.Radius)
 
-	fmax := p.Mass * 8. * math.Max(p.alpha, o.alpha)
+	fmax := p.Mass * 32. * math.Max(p.alpha, o.alpha)
 	var f pixel.Vec
 	if rho <= 1 {
 		f = p.Position.To(o.Position).Unit().Scaled(-2 * fmax * (1 / (1 + math.Pow(rho, 2))))
@@ -123,7 +124,7 @@ func (p *Person) wallForce(obstacles []*Obstacle) pixel.Vec {
 		return pixel.V(0, 0)
 	}
 
-	fmax := p.Mass * 16. * p.alpha
+	fmax := p.Mass * 64. * p.alpha
 	s := minDistVec.Unit()
 	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
 }
@@ -151,6 +152,9 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 	var closestObstacle Obstacle
 
 	for _, o := range obstacles {
+		if o.Inner {
+			continue
+		}
 		d := o.Dist(p)
 		if minDistVec.Len() > d.Len() {
 			minDistVec = d
@@ -166,7 +170,7 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 }
 
 func (p *Person) kinematicConstraint(dt float64, others []*Person) {
-	xi := .5
+	xi := .75
 	for _, o := range others {
 		if o.id == p.id {
 			continue
@@ -174,17 +178,14 @@ func (p *Person) kinematicConstraint(dt float64, others []*Person) {
 		var ds float64
 		if p.Velocity.Dot(o.Velocity) > 0 {
 			ds = xi*p.Radius + xi*o.Radius
-		} else if p.Velocity.Dot(o.Velocity) < 0 {
-			ds = xi*p.Radius + (1-xi)*o.Radius
 		} else {
-			return
+			ds = xi*p.Radius + (1-xi)*o.Radius
 		}
 
 		pNewPosition := p.Position.Add(p.Velocity.Scaled(dt))
 		oNewPosition := o.Position.Add(o.Velocity.Scaled(dt))
 
 		dn := pNewPosition.To(oNewPosition).Len()
-		// dn := p.Position.To(o.Position).Len()
 
 		cr := math.Min(1, math.Max(0, (dn-ds)/ds))
 
@@ -207,13 +208,10 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	}
 	p.sumForce = p.sumForce.Add(p.wallForce(obstacles))
 
-	// if p.id == 0 {
-	// 	fmt.Println(p.sumForce)
-	// }
-
 	p.fixCollision(obstacles)
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
 	p.motionInhibition(obstacles)
+	p.kinematicConstraint(dt, people[:])
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
 
 }
@@ -235,10 +233,10 @@ func (p *Person) Draw(win *pixelgl.Window, imd *imdraw.IMDraw) {
 	imd.Push(p.Position.Add(p.Velocity))
 	imd.Line(1)
 
-	imd.Color = colornames.Yellow
-	imd.Push(p.Position)
-	imd.Push(p.Position.Add(p.sumForce.Scaled(1 / p.Mass)))
-	imd.Line(1)
+	// imd.Color = colornames.Yellow
+	// imd.Push(p.Position)
+	// imd.Push(p.Position.Add(p.sumForce.Scaled(1 / p.Mass)))
+	// imd.Line(1)
 
 	// imd.Color = colornames.Magenta
 	// imd.Push(p.Position)
