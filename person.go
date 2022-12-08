@@ -45,7 +45,7 @@ func newPerson(id int) *Person {
 	p.Mass = rand.NormFloat64()*5 + 70
 	p.alpha = 1.
 
-	p.Radius = (rand.NormFloat64()*0.05 + 0.2) * 50
+	p.Radius = (rand.NormFloat64()*0.01 + 0.2) * 50
 	p.wallThreshold = math.Max(p.Radius+0.05, (rand.NormFloat64()*0.1+2)*50)
 
 	return p
@@ -166,7 +166,7 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 }
 
 func (p *Person) kinematicConstraint(dt float64, others []*Person) {
-	xi := .25
+	xi := .5
 	for _, o := range others {
 		if o.id == p.id {
 			continue

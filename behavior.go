@@ -68,10 +68,12 @@ type FollowerBehavior struct {
 
 // NewFollowerBehavior creates a new follower behavior.
 func NewFollowerBehavior(target *Person, obstacles []*Obstacle) *FollowerBehavior {
+	goalB := NewGoalBehavior(NewGoal(target.Position, 0, 0))
+	goalB.SetMaxRangeFactor(1.1)
 	return &FollowerBehavior{
 		Target:       target,
 		Obstacles:    obstacles,
-		goalBehavior: NewGoalBehavior(NewGoal(target.Position, 0, 0)),
+		goalBehavior: goalB,
 	}
 }
 
