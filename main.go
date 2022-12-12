@@ -32,8 +32,8 @@ func run() {
 
 	wanderLocations := []*Goal{}
 	for i := 0; i < 100; i++ {
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-350, 350)), 100, 10))
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-350, 350)), 100, 10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-350, 350)), 100, rand.NormFloat64()*0.5+10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-350, 350)), 100, rand.NormFloat64()*0.5+10))
 	}
 	wanderLocations = append(wanderLocations, NewGoal(pixel.V(-350, 250), 100, 0), NewGoal(pixel.V(350, 250), 100, 0))
 
