@@ -11,9 +11,9 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [16]*Person
+var people [64]*Person
 var obstacles []*Obstacle
-var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](4, 4, -900, 900, -400, 400)
+var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](6, 3, -900, 900, -400, 400)
 
 func run() {
 	rand.Seed(time.Now().Unix())
@@ -27,19 +27,31 @@ func run() {
 		panic(err)
 	}
 
-	obstacles = append(obstacles, newObstacle(pixel.R(-300, -100, 300, 100), false)) // Kiosk
+	obstacles = append(obstacles, newObstacle(pixel.R(-300, -200, 300, 200), false)) // Kiosk
 	obstacles = append(obstacles, newObstacle(pixel.R(-875, -375, 875, 375), true))
 
 	wanderLocations := []*Goal{}
 	for i := 0; i < 100; i++ {
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(700, 800), random(-350, 350)), 100, 10))
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -700), random(-350, 350)), 100, 10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-350, 350)), 100, 10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-350, 350)), 100, 10))
 	}
 	wanderLocations = append(wanderLocations, NewGoal(pixel.V(-350, 250), 100, 0), NewGoal(pixel.V(350, 250), 100, 0))
 
 	for i := 0; i < len(people)/2; i++ {
 		people[i] = newPerson(i)
 		people[i].Position = pixel.V(random(-400, -800), random(-350, 350))
+		noCollision := true
+		for noCollision {
+			noCollision = false
+			for j := 0; j < i; j++ {
+				if people[i].Position.To(people[j].Position).Len() < people[i].Radius+people[j].Radius*1.1 {
+					people[i].Position = pixel.V(random(-400, -800), random(-350, 350))
+					noCollision = true
+					break
+				}
+			}
+		}
+
 		// people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(-350, 250), 100, 0), newGoal(pixel.V(random(700, 800), random(-350, 350)), 50, 0)))
 		people[i].Behavior = NewWanderBehavior(obstacles, wanderLocations...)
 	}
@@ -49,12 +61,23 @@ func run() {
 
 		people[i].Color = colornames.Magenta
 		people[i].Position = pixel.V(random(800, 400), random(-350, 350))
+		noCollision := true
+		for noCollision {
+			noCollision = false
+			for j := len(people) / 2; j < i; j++ {
+				if people[i].Position.To(people[j].Position).Len() < people[i].Radius+people[j].Radius*1.1 {
+					people[i].Position = pixel.V(random(800, 400), random(-350, 350))
+					noCollision = true
+					break
+				}
+			}
+		}
 		// people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(350, 250), 100, 0), newGoal(pixel.V(random(-800, -700), random(-350, 350)), 50, 0)))
 		people[i].Behavior = NewWanderBehavior(obstacles, wanderLocations...)
 	}
 
 	// The last few from each group should follow the first person in their group
-	amount := 2
+	amount := 4
 	for i := 0; i < amount; i++ {
 		people[i].Color = colornames.Darkcyan
 		people[i].Behavior = NewFollowerBehavior(people[amount+1], obstacles)
@@ -84,7 +107,8 @@ func run() {
 			wg.Add(1)
 			go func(p *Person) {
 				defer wg.Done()
-				p.update(dt, people[:], obstacles[:])
+				// p.update(dt, people[:], obstacles[:])
+				p.update(dt, emptybins.GetSurrounding(p, 1), obstacles[:])
 			}(p)
 		}
 		wg.Wait()

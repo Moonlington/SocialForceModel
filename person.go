@@ -211,7 +211,7 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	p.fixCollision(obstacles)
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
 	p.motionInhibition(obstacles)
-	p.kinematicConstraint(dt, people[:])
+	// p.kinematicConstraint(dt, others)
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
 
 }

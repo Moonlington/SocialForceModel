@@ -32,11 +32,17 @@ func newEmptyBin[T Spacial](xbins, ybins int, xmin, xmax, ymin, ymax float64) *E
 }
 
 func (b *EmptyBin[T]) Get(x, y int) []T {
+	if x < 0 || y < 0 || x >= len(b.data[0]) || y >= len(b.data) {
+		return []T{}
+	}
 	return b.data[y][x]
 }
 
 func (b *EmptyBin[T]) Add(key T) {
 	ibinX, ibinY := b.GetBinXY(key)
+	if ibinX < 0 || ibinY < 0 || ibinX >= len(b.data[0]) || ibinY >= len(b.data) {
+		return
+	}
 	b.data[ibinY][ibinX] = append(b.data[ibinY][ibinX], key)
 }
 
@@ -52,9 +58,27 @@ func (b *EmptyBin[T]) GetBinXY(key T) (int, int) {
 	return ibinX, ibinY
 }
 
-func (b *EmptyBin[T]) Remove(x, y, i int) {
+func (b *EmptyBin[T]) RemoveI(x, y, i int) {
 	bin := b.data[y][x]
 	bin = append(bin[:i], bin[i+1:]...)
+	b.data[y][x] = bin
+}
+
+func (b *EmptyBin[T]) Remove(key T) {
+	kx, ky := key.XY()
+	for y := range b.data {
+		for x := range b.data[y] {
+			for i, v := range b.data[y][x] {
+				ox, oy := v.XY()
+				if ox != kx || oy != ky {
+					continue
+				}
+				b.data[y][x] = append(b.data[y][x][:i], b.data[y][x][i+1:]...)
+				return
+			}
+		}
+	}
+	panic("Not Found!")
 }
 
 func (b *EmptyBin[T]) GetAll() []T {
@@ -70,17 +94,38 @@ func (b *EmptyBin[T]) GetAll() []T {
 }
 
 func (b *EmptyBin[T]) Update() {
+	toUpdate := []T{}
 	for y := range b.data {
 		for x := range b.data[y] {
-			for i, v := range b.data[y][x] {
+			for _, v := range b.data[y][x] {
 				ibinX, ibinY := b.GetBinXY(v)
 				if ibinX == x && ibinY == y {
 					continue
 				}
-				b.Remove(x, y, i)
-				b.Add(v)
+				toUpdate = append(toUpdate, v)
 			}
 		}
 	}
-	fmt.Println(b.data)
+	for _, v := range toUpdate {
+		b.Remove(v)
+		b.Add(v)
+	}
+	for y := range b.data {
+		for x := range b.data[y] {
+			fmt.Printf("%d ", len(b.data[y][x]))
+		}
+		fmt.Println()
+	}
+	fmt.Println("---------------")
+}
+
+func (b *EmptyBin[T]) GetSurrounding(key T, radius int) []T {
+	output := []T{}
+	x, y := b.GetBinXY(key)
+	for i := -radius; i < radius; i++ {
+		for j := -radius; j < radius; j++ {
+			output = append(output, b.Get(x+i, y+j)...)
+		}
+	}
+	return output
 }
