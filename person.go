@@ -49,7 +49,7 @@ func newPerson(id int) *Person {
 	p.alpha = 1.
 
 	p.Radius = (rand.NormFloat64()*0.025 + 0.2) * SCALING
-	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*0.1+10.)*SCALING)
+	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*.5+1.)*SCALING)
 
 	return p
 }
@@ -85,7 +85,7 @@ func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
 }
 
 func (p *Person) nearRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 16. * p.alpha
+	fmax := p.Mass * 32. * p.alpha
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius)
 	return p.Position.To(o.Position).Unit().Scaled(-fmax * (1 / (1 + math.Pow(rho, 2))))
 }
@@ -94,7 +94,7 @@ func (p *Person) contactForce(o *Person) pixel.Vec {
 	sumForce := pixel.V(0, 0)
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius + o.Radius)
 
-	fmax := p.Mass * 32. * math.Max(p.alpha, o.alpha)
+	fmax := p.Mass * 64. * math.Max(p.alpha, o.alpha)
 	var f pixel.Vec
 	if rho <= 1 {
 		f = p.Position.To(o.Position).Unit().Scaled(-2 * fmax * (1 / (1 + math.Pow(rho, 2))))
@@ -124,7 +124,7 @@ func (p *Person) wallForce(obstacles []*Obstacle) pixel.Vec {
 		return pixel.V(0, 0)
 	}
 
-	fmax := p.Mass * 64. * p.alpha
+	fmax := p.Mass * 128. * p.alpha
 	s := minDistVec.Unit()
 	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
 }
@@ -169,6 +169,20 @@ func (p *Person) fixCollision(obstacles []*Obstacle) {
 	p.Position = p.Position.Add(pixel.C(p.Position, p.Radius).IntersectRect(closestObstacle.Rect))
 }
 
+func (p *Person) fixCollisionOthers(others []*Person) {
+	for _, o := range others {
+		if o.id == p.id {
+			continue
+		}
+		distance := p.Position.To(o.Position).Len()
+		overlap := -(distance - p.Radius*.9 - o.Radius*.9)
+		if overlap <= 0 {
+			continue
+		}
+		p.Position = p.Position.Add(p.Position.To(o.Position).Unit().Scaled(-overlap))
+	}
+}
+
 func (p *Person) kinematicConstraint(dt float64, others []*Person) {
 	xi := .75
 	for _, o := range others {
@@ -208,10 +222,11 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	}
 	p.sumForce = p.sumForce.Add(p.wallForce(obstacles))
 
+	p.fixCollisionOthers(others)
 	p.fixCollision(obstacles)
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
 	p.motionInhibition(obstacles)
-	// p.kinematicConstraint(dt, others)
+	p.kinematicConstraint(dt, others[:])
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
 
 }
@@ -228,10 +243,10 @@ func (p *Person) Draw(win *pixelgl.Window, imd *imdraw.IMDraw) {
 		imd.Circle(p.Radius, 1)
 	}
 
-	imd.Color = colornames.Lime
-	imd.Push(p.Position)
-	imd.Push(p.Position.Add(p.Velocity))
-	imd.Line(1)
+	// imd.Color = colornames.Lime
+	// imd.Push(p.Position)
+	// imd.Push(p.Position.Add(p.Velocity))
+	// imd.Line(1)
 
 	// imd.Color = colornames.Yellow
 	// imd.Push(p.Position)
