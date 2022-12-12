@@ -110,20 +110,20 @@ func (b *EmptyBin[T]) Update() {
 		b.Remove(v)
 		b.Add(v)
 	}
-	for y := range b.data {
-		for x := range b.data[y] {
-			fmt.Printf("%d ", len(b.data[y][x]))
-		}
-		fmt.Println()
-	}
-	fmt.Println("---------------")
-}
+// 	fmt.Println("---------------")
+// 	for y := range b.data {
+// 		for x := range b.data[y] {
+// 			fmt.Printf("%d ", len(b.data[y][x]))
+// 		}
+// 		fmt.Println()
+// 	}
+// }
 
 func (b *EmptyBin[T]) GetSurrounding(key T, radius int) []T {
 	output := []T{}
 	x, y := b.GetBinXY(key)
-	for i := -radius; i < radius; i++ {
-		for j := -radius; j < radius; j++ {
+	for i := -radius; i <= radius; i++ {
+		for j := -radius; j <= radius; j++ {
 			output = append(output, b.Get(x+i, y+j)...)
 		}
 	}
