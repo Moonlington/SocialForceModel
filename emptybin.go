@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 type Spacial interface {
 	XY() (float64, float64)
 }
@@ -110,14 +108,14 @@ func (b *EmptyBin[T]) Update() {
 		b.Remove(v)
 		b.Add(v)
 	}
-// 	fmt.Println("---------------")
-// 	for y := range b.data {
-// 		for x := range b.data[y] {
-// 			fmt.Printf("%d ", len(b.data[y][x]))
-// 		}
-// 		fmt.Println()
-// 	}
-// }
+	// 	fmt.Println("---------------")
+	// 	for y := range b.data {
+	// 		for x := range b.data[y] {
+	// 			fmt.Printf("%d ", len(b.data[y][x]))
+	// 		}
+	// 		fmt.Println()
+	// 	}
+}
 
 func (b *EmptyBin[T]) GetSurrounding(key T, radius int) []T {
 	output := []T{}
