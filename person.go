@@ -30,6 +30,8 @@ type Person struct {
 	sumForce pixel.Vec
 
 	wallThreshold float64
+
+	timeSinceLastGoal float64
 }
 
 func newPerson(id int) *Person {
@@ -46,10 +48,12 @@ func newPerson(id int) *Person {
 	p.DesiredSpeed = math.Max(0.01, (rand.NormFloat64()*0.025+1.)*SCALING)
 	p.Mass = rand.NormFloat64()*5 + 70
 	// p.alpha = 1. * math.Sqrt(SCALING)
-	p.alpha = 1.
+	p.alpha = 2.
 
 	p.Radius = (rand.NormFloat64()*0.025 + 0.2) * SCALING
 	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*.5+1.)*SCALING)
+
+	p.timeSinceLastGoal = 0.
 
 	return p
 }
@@ -59,16 +63,18 @@ func (p *Person) XY() (float64, float64) {
 }
 
 func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
-	gw := p.Mass * p.alpha
+	gw := p.Mass * p.alpha * (1 + p.timeSinceLastGoal/20)
 	if target == p.Position {
+		p.timeSinceLastGoal = 0
 		return pixel.V(0, 0).Sub(p.Velocity).Scaled(gw)
 	}
-	Vd := p.Position.To(target).Unit().Scaled(p.DesiredSpeed)
+	Vd := p.Position.To(target).Unit().Scaled(p.DesiredSpeed * (1 + p.timeSinceLastGoal/60))
+	p.timeSinceLastGoal += dt
 	return Vd.Sub(p.Velocity).Scaled(gw)
 }
 
 func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 8. * p.alpha
+	fmax := p.Mass * 16. * p.alpha
 
 	t := p.Velocity.Unit()
 	n := p.Velocity.Normal().Unit()
@@ -85,7 +91,7 @@ func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
 }
 
 func (p *Person) nearRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 32. * p.alpha
+	fmax := p.Mass * 64. * p.alpha
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius)
 	return p.Position.To(o.Position).Unit().Scaled(-fmax * (1 / (1 + math.Pow(rho, 2))))
 }
@@ -94,7 +100,7 @@ func (p *Person) contactForce(o *Person) pixel.Vec {
 	sumForce := pixel.V(0, 0)
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius + o.Radius)
 
-	fmax := p.Mass * 64. * math.Max(p.alpha, o.alpha)
+	fmax := p.Mass * 128. * math.Max(p.alpha, o.alpha)
 	var f pixel.Vec
 	if rho <= 1 {
 		f = p.Position.To(o.Position).Unit().Scaled(-2 * fmax * (1 / (1 + math.Pow(rho, 2))))
@@ -124,7 +130,7 @@ func (p *Person) wallForce(obstacles []*Obstacle) pixel.Vec {
 		return pixel.V(0, 0)
 	}
 
-	fmax := p.Mass * 128. * p.alpha
+	fmax := p.Mass * 256. * p.alpha
 	s := minDistVec.Unit()
 	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
 }
@@ -175,7 +181,7 @@ func (p *Person) fixCollisionOthers(others []*Person) {
 			continue
 		}
 		distance := p.Position.To(o.Position).Len()
-		overlap := -(distance - p.Radius*.9 - o.Radius*.9)
+		overlap := -(distance - p.Radius*.9 - o.Radius)
 		if overlap <= 0 {
 			continue
 		}
