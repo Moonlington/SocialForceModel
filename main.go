@@ -11,7 +11,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [32]*Person
+var people [80]*Person
 var obstacles []*Obstacle
 var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](6, 3, -900, 900, -400, 400)
 
@@ -31,9 +31,9 @@ func run() {
 	obstacles = append(obstacles, newObstacle(pixel.R(-875, -375, 875, 375), true))
 
 	wanderLocations := []*Goal{}
-	for i := 0; i < 10; i++ {
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-350, 350)), 100, rand.NormFloat64()*0.5+10))
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-350, 350)), 100, rand.NormFloat64()*0.5+10))
+	for i := 0; i < 100; i++ {
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-350, 350)), 250, rand.NormFloat64()*0.5+10))
+		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-350, 350)), 250, rand.NormFloat64()*0.5+10))
 	}
 	wanderLocations = append(wanderLocations, NewGoal(pixel.V(-350, 250), 100, 0), NewGoal(pixel.V(350, 250), 100, 0))
 

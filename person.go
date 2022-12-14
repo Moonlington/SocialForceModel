@@ -59,7 +59,7 @@ func newPerson(id int) *Person {
 }
 
 func (p *Person) getAlpha() float64 {
-	return (p.gw / p.Mass) * p.DesiredSpeed
+	return (p.gw / p.Mass) * p.DesiredSpeed * (1 + p.timeSinceLastGoal/20)
 }
 
 func (p *Person) XY() (float64, float64) {
@@ -67,7 +67,7 @@ func (p *Person) XY() (float64, float64) {
 }
 
 func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
-	gw := p.Mass * p.getAlpha() * (1 + p.timeSinceLastGoal/20)
+	gw := p.Mass * p.getAlpha()
 	if target == p.Position {
 		p.timeSinceLastGoal = 0
 		return pixel.V(0, 0).Sub(p.Velocity).Scaled(gw)
