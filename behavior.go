@@ -119,14 +119,14 @@ func NewWanderBehavior(obstacles []*Obstacle, wanderLocations ...*Goal) *WanderB
 func (b *WanderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
 	if b.CurrentGoal == nil || b.goalBehavior.HasLoitered() {
 		b.goalBehavior.LoiterTime = 0
-		b.CurrentGoal = b.ChooseNextWanderLoaction(p)
+		b.CurrentGoal = b.ChooseNextWanderLocation(p)
 		b.goalBehavior.SetGoal(b.CurrentGoal)
 	}
 	return b.goalBehavior.GetTarget(p, dt)
 }
 
-// ChooseNextWanderLoaction chooses the next wander location.
-func (b *WanderBehavior) ChooseNextWanderLoaction(p *Person) *Goal {
+// ChooseNextWanderLocation chooses the next wander location.
+func (b *WanderBehavior) ChooseNextWanderLocation(p *Person) *Goal {
 	var possibleGoals []*Goal
 	for _, goal := range b.WanderGoals {
 		intersects := false
@@ -147,4 +147,7 @@ func (b *WanderBehavior) ChooseNextWanderLoaction(p *Person) *Goal {
 		return nil
 	}
 	return possibleGoals[rand.Intn(len(possibleGoals))]
+}
+
+type PathfinderBehavior struct {
 }
