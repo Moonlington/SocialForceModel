@@ -38,8 +38,36 @@ func (o *Obstacle) Dist(p *Person) pixel.Vec {
 }
 
 func (o *Obstacle) Draw(imd *imdraw.IMDraw) {
-	imd.Color = colornames.White
+	if o.Inner {
+		imd.Color = colornames.Lightcoral
+	} else {
+		imd.Color = colornames.Lightgoldenrodyellow
+	}
 	imd.Push(o.Min)
 	imd.Push(o.Max)
 	imd.Rectangle(1)
+}
+
+func intersectObstaclesVec(obstacles []*Obstacle, v pixel.Vec) bool {
+	for _, obstacle := range obstacles {
+		contains := obstacle.Contains(v)
+		if contains && !obstacle.Inner {
+			return true
+		} else if !contains && obstacle.Inner {
+			return true
+		}
+	}
+	return false
+}
+
+func intersectObstaclesLine(obstacles []*Obstacle, l pixel.Line) bool {
+	for _, obstacle := range obstacles {
+		contains := obstacle.IntersectLine(l).Len() > 0
+		if contains && !obstacle.Inner {
+			return true
+		} else if !contains && obstacle.Inner {
+			return true
+		}
+	}
+	return false
 }

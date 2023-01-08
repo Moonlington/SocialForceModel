@@ -11,7 +11,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-const SCALING float64 = 100.
+const SCALING float64 = 50.
 
 type Person struct {
 	id    int
@@ -51,7 +51,7 @@ func newPerson(id int) *Person {
 	p.gw = 1.
 
 	p.Radius = (rand.NormFloat64()*0.025 + 0.2) * SCALING
-	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*.5+1.)*SCALING)
+	p.wallThreshold = math.Max(p.Radius, (rand.NormFloat64()*.05+1.)*SCALING)
 
 	p.timeSinceLastGoal = 0.
 
@@ -78,7 +78,7 @@ func (p *Person) willForce(dt float64, target pixel.Vec) pixel.Vec {
 }
 
 func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 2. * p.getAlpha()
+	fmax := p.Mass * 4. * p.getAlpha()
 
 	t := p.Velocity.Unit()
 	n := p.Velocity.Normal().Unit()
@@ -95,7 +95,7 @@ func (p *Person) intermediateRangeForce(o *Person) pixel.Vec {
 }
 
 func (p *Person) nearRangeForce(o *Person) pixel.Vec {
-	fmax := p.Mass * 4. * p.getAlpha()
+	fmax := p.Mass * 16. * p.getAlpha()
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius)
 	return p.Position.To(o.Position).Unit().Scaled(-fmax * (1 / (1 + math.Pow(rho, 2))))
 }
@@ -104,7 +104,7 @@ func (p *Person) contactForce(o *Person) pixel.Vec {
 	sumForce := pixel.V(0, 0)
 	rho := p.Position.Sub(o.Position).Len() / (p.Radius + o.Radius)
 
-	fmax := p.Mass * 8. * math.Max(p.getAlpha(), o.getAlpha())
+	fmax := p.Mass * 64. * math.Max(p.getAlpha(), o.getAlpha())
 	var f pixel.Vec
 	if rho <= 1 {
 		f = p.Position.To(o.Position).Unit().Scaled(-2 * fmax * (1 / (1 + math.Pow(rho, 2))))
@@ -134,7 +134,26 @@ func (p *Person) wallForce(obstacles []*Obstacle) pixel.Vec {
 		return pixel.V(0, 0)
 	}
 
-	fmax := p.Mass * 16. * p.getAlpha()
+	fmax := p.Mass * 256. * p.getAlpha()
+	s := minDistVec.Unit()
+	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
+}
+
+func (p *Person) edgeForce(edges []*Obstacle) pixel.Vec {
+	minDistVec := pixel.V(math.Inf(1), math.Inf(1))
+
+	for _, o := range obstacles {
+		d := o.Dist(p)
+		if minDistVec.Len() > d.Len() {
+			minDistVec = d
+		}
+	}
+
+	if minDistVec.Len() > p.wallThreshold*5 {
+		return pixel.V(0, 0)
+	}
+
+	fmax := p.Mass * 1024. * p.getAlpha()
 	s := minDistVec.Unit()
 	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
 }
@@ -235,8 +254,8 @@ func (p *Person) update(dt float64, others []*Person, obstacles []*Obstacle) {
 	p.fixCollisionOthers(others)
 	p.fixCollision(obstacles)
 	p.Velocity = p.Velocity.Add(p.sumForce.Scaled(1 / p.Mass).Scaled(dt))
-	p.motionInhibition(obstacles)
-	p.kinematicConstraint(dt, others[:])
+	// p.motionInhibition(obstacles)
+	// p.kinematicConstraint(dt, others[:])
 	p.Position = p.Position.Add(p.Velocity.Scaled(dt))
 
 }
@@ -253,10 +272,10 @@ func (p *Person) Draw(win *pixelgl.Window, imd *imdraw.IMDraw) {
 		imd.Circle(p.Radius, 1)
 	}
 
-	// imd.Color = colornames.Lime
-	// imd.Push(p.Position)
-	// imd.Push(p.Position.Add(p.Velocity))
-	// imd.Line(1)
+	imd.Color = colornames.Lime
+	imd.Push(p.Position)
+	imd.Push(p.Position.Add(p.Velocity))
+	imd.Line(1)
 
 	// imd.Color = colornames.Yellow
 	// imd.Push(p.Position)

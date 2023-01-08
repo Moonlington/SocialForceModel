@@ -11,9 +11,10 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [80]*Person
+var people [200]*Person
 var obstacles []*Obstacle
-var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](6, 3, -900, 900, -400, 400)
+var edges []*Obstacle
+var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](10, 5, -900, 900, -400, 400)
 
 func run() {
 	rand.Seed(time.Now().Unix())
@@ -27,8 +28,13 @@ func run() {
 		panic(err)
 	}
 
-	obstacles = append(obstacles, newObstacle(pixel.R(-300, -200, 300, 200), false)) // Kiosk
-	obstacles = append(obstacles, newObstacle(pixel.R(-875, -375, 875, 375), true))
+	obstacles = append(obstacles, newObstacle(pixel.R(-890, 200, 890, 390), false))
+	obstacles = append(obstacles, newObstacle(pixel.R(-890, -390, 890, -200), false))
+	obstacles = append(obstacles, newObstacle(pixel.R(-150, -100, 150, 100), false)) // Kiosk
+	obstacles = append(obstacles, newObstacle(pixel.R(-890, -390, 890, 390), true))  // Edges of the screen
+
+	edges = append(edges, newObstacle(pixel.R(-890, 200, 890, 390), false))
+	edges = append(edges, newObstacle(pixel.R(-890, -390, 890, -200), false))
 
 	wanderLocations := []*Goal{}
 	for i := 0; i < 100; i++ {
@@ -39,13 +45,13 @@ func run() {
 
 	for i := 0; i < len(people)/2; i++ {
 		people[i] = newPerson(i)
-		people[i].Position = pixel.V(random(-400, -800), random(-350, 350))
+		people[i].Position = pixel.V(random(-400, -800), random(-150, 150))
 		noCollision := true
 		for noCollision {
 			noCollision = false
 			for j := 0; j < i; j++ {
 				if people[i].Position.To(people[j].Position).Len() < people[i].Radius+people[j].Radius*1.1 {
-					people[i].Position = pixel.V(random(-400, -800), random(-350, 350))
+					people[i].Position = pixel.V(random(-400, -800), random(-150, 150))
 					noCollision = true
 					break
 				}
@@ -60,13 +66,13 @@ func run() {
 		people[i] = newPerson(i)
 
 		people[i].Color = colornames.Magenta
-		people[i].Position = pixel.V(random(800, 400), random(-350, 350))
+		people[i].Position = pixel.V(random(800, 400), random(-150, 150))
 		noCollision := true
 		for noCollision {
 			noCollision = false
 			for j := len(people) / 2; j < i; j++ {
 				if people[i].Position.To(people[j].Position).Len() < people[i].Radius+people[j].Radius*1.1 {
-					people[i].Position = pixel.V(random(800, 400), random(-350, 350))
+					people[i].Position = pixel.V(random(800, 400), random(-150, 150))
 					noCollision = true
 					break
 				}
