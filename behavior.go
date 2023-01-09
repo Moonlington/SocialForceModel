@@ -150,4 +150,24 @@ func (b *WanderBehavior) ChooseNextWanderLocation(p *Person) *Goal {
 }
 
 type PathfinderBehavior struct {
+	goalGraph   *GoalGraph
+	currentPath *Path
+	obstacles   []*Obstacle
+}
+
+func NewPathfinderBehavior(goalGraph *GoalGraph) *PathfinderBehavior {
+	return &PathfinderBehavior{goalGraph: goalGraph}
+}
+
+// SelectRandomGoal randomly selects a goal from the goal graph.
+func (b *PathfinderBehavior) SelectRandomGoal() *Goal {
+	return b.goalGraph.Goals[rand.Intn(len(b.goalGraph.Goals))]
+}
+
+// PathfindToGoal uses A* algorithm to find a path to a given goal from where the person is located
+func (b *PathfinderBehavior) PathfindToGoal(p *Person, goal *Goal) *Path {
+	if b.currentPath != nil && b.currentPath.GetFinishGoal() == goal {
+		return b.currentPath
+	}
+	return b.currentPath
 }
