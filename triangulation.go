@@ -149,3 +149,53 @@ func (T *Triangulation) Draw(imd *imdraw.IMDraw) {
 		t.Draw(imd)
 	}
 }
+
+func (T *Triangulation) Points() []pixel.Vec {
+	var points []pixel.Vec
+	for _, t := range T.triangles {
+		for _, p := range t.points {
+			found := false
+			for _, p2 := range points {
+				if p == p2 {
+					found = true
+					break
+				}
+			}
+			if !found {
+				points = append(points, p)
+			}
+		}
+	}
+	return points
+}
+
+func (T *Triangulation) Edges() []pixel.Line {
+	var edges []pixel.Line
+	for _, t := range T.triangles {
+		for _, e := range t.Edges() {
+			found := false
+			for _, e2 := range edges {
+				if e == e2 || (e.A == e2.B && e.B == e2.A) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				edges = append(edges, e)
+			}
+		}
+	}
+	return edges
+}
+
+func (T *Triangulation) GetConnectingPoints(p pixel.Vec) []pixel.Vec {
+	var points []pixel.Vec
+	for _, e := range T.Edges() {
+		if e.A == p {
+			points = append(points, e.B)
+		} else if e.B == p {
+			points = append(points, e.A)
+		}
+	}
+	return points
+}

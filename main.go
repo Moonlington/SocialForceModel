@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [0]*Person
+var people [128]*Person
 var obstacles []*Obstacle
 var edges []*Obstacle
 var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](10, 5, -900, 900, -400, 400)
@@ -30,24 +31,21 @@ func run() {
 		panic(err)
 	}
 
+	fmt.Println("Creating obstacles")
 	createObstaclesAndEdges()
 
-	wanderLocations := []*Goal{}
-	wanderLocations = generateWanderLocations(wanderLocations)
+	fmt.Println("Generating wander locations")
+	wanderLocations := generateWanderLocations()
 
 	// Using the list of points from wanderLocations, create a triangulation
-	points := []pixel.Vec{}
-	for _, goal := range wanderLocations {
-		points = append(points, goal.Target)
-	}
-	triangulation = BowyerWatson(points)
+	fmt.Println("Generating triangulation")
+	triangulation = BowyerWatson(wanderLocations)
 	// fmt.Println(triangulation)
-
-	// people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(-350, 250), 100, 0), newGoal(pixel.V(random(700, 800), random(-350, 350)), 50, 0)))
-	// people[i].Behavior = NewPathBehavior(newPath(newGoal(pixel.V(350, 250), 100, 0), newGoal(pixel.V(random(-800, -700), random(-350, 350)), 50, 0)))
 	// The last few from each group should follow the first person in their group
-	createPeople(wanderLocations)
+	fmt.Println("Generating people")
+	createPeople()
 
+	fmt.Println("Generating emptybin")
 	for _, person := range people {
 		emptybins.Add(person)
 	}
@@ -55,16 +53,17 @@ func run() {
 	imd := imdraw.New(nil)
 	imd.SetMatrix(pixel.IM.Moved(win.Bounds().Center()))
 
-	last := time.Now()
+	// last := time.Now()
 
 	for !win.Closed() {
 		imd.Clear()
 
-		dt := time.Since(last).Seconds()
-		last = time.Now()
+		// dt := time.Since(last).Seconds()
+		dt := time.Second.Seconds() / 60
+		// last = time.Now()
 
 		// p.update(dt, people[:], obstacles[:])
-		updateAndDrawPeople(win, imd, dt)
+		updateAndDrawPeople(win, imd, 10*dt)
 
 		emptybins.Update()
 
@@ -72,7 +71,7 @@ func run() {
 			o.Draw(imd)
 		}
 
-		triangulation.Draw(imd)
+		// triangulation.Draw(imd)
 
 		win.Clear(colornames.Black)
 		imd.Draw(win)
@@ -94,7 +93,7 @@ func updateAndDrawPeople(win *pixelgl.Window, imd *imdraw.IMDraw, dt float64) {
 	wg.Wait()
 }
 
-func createPeople(wanderLocations []*Goal) {
+func createPeople() {
 	for i := 0; i < len(people)/2; i++ {
 		people[i] = newPerson(i)
 		people[i].Position = pixel.V(random(-400, -800), random(-150, 150))
@@ -110,7 +109,7 @@ func createPeople(wanderLocations []*Goal) {
 			}
 		}
 
-		people[i].Behavior = NewWanderBehavior(obstacles, wanderLocations...)
+		people[i].Behavior = NewPathfinderBehavior(triangulation, obstacles)
 	}
 
 	for i := len(people) / 2; i < len(people); i++ {
@@ -130,11 +129,11 @@ func createPeople(wanderLocations []*Goal) {
 			}
 		}
 
-		people[i].Behavior = NewWanderBehavior(obstacles, wanderLocations...)
+		people[i].Behavior = NewPathfinderBehavior(triangulation, obstacles)
 	}
 
-	if len(people) > 0 {
-		amount := 4
+	amount := 1
+	if len(people) > amount+1 {
 		for i := 0; i < amount; i++ {
 			people[i].Color = colornames.Darkcyan
 			people[i].Behavior = NewFollowerBehavior(people[amount+1], obstacles)
@@ -144,12 +143,14 @@ func createPeople(wanderLocations []*Goal) {
 	}
 }
 
-func generateWanderLocations(wanderLocations []*Goal) []*Goal {
+func generateWanderLocations() []pixel.Vec {
+	var wanderLocations []pixel.Vec
 	for i := 0; i < 200; i++ {
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(400, 800), random(-180, 180)), 250, rand.NormFloat64()*0.5+10))
-		wanderLocations = append(wanderLocations, NewGoal(pixel.V(random(-800, -400), random(-180, 180)), 250, rand.NormFloat64()*0.5+10))
+		wanderLocations = append(wanderLocations, pixel.V(random(400, 800), random(-180, 180)))
+		wanderLocations = append(wanderLocations, pixel.V(random(-800, -400), random(-180, 180)))
 	}
-	// wanderLocations = append(wanderLocations, NewGoal(pixel.V(-200, 250), 100, 0), NewGoal(pixel.V(200, 250), 100, 0))
+	wanderLocations = append(wanderLocations, pixel.V(-200, 170), pixel.V(200, 170))
+	wanderLocations = append(wanderLocations, pixel.V(-200, -170), pixel.V(200, -170))
 	return wanderLocations
 }
 

@@ -23,66 +23,66 @@ func NewGoalEdge(a, b *Goal) *GoalEdge {
 	return &GoalEdge{A: a, B: b}
 }
 
-// GoalGraph defines the graph of goals.
-type GoalGraph struct {
-	Goals       []*Goal
-	Connections []*GoalEdge
-}
+// // GoalGraph defines the graph of goals.
+// type GoalGraph struct {
+// 	Goals       []*Goal
+// 	Connections []*GoalEdge
+// }
 
-func NewGoalGraph() *GoalGraph {
-	return &GoalGraph{}
-}
+// func NewGoalGraph() *GoalGraph {
+// 	return &GoalGraph{}
+// }
 
-func NewGoalGraphFromTriangulation(tri *Triangulation, radius, loiter float64) *GoalGraph {
-	g := NewGoalGraph()
-	for _, t := range tri.triangles {
-		for _, e := range t.Edges() {
-			goalA := NewGoal(e.A, radius, loiter)
-			goalB := NewGoal(e.B, radius, loiter)
-			g.AddConnection(goalA, goalB)
-			if !g.IncludesGoal(goalA) {
-				g.AddGoal(goalA)
-			}
-			if !g.IncludesGoal(goalB) {
-				g.AddGoal(goalB)
-			}
-		}
-	}
-	return g
-}
+// func NewGoalGraphFromTriangulation(tri *Triangulation, radius, loiter float64) *GoalGraph {
+// 	g := NewGoalGraph()
+// 	for _, t := range tri.triangles {
+// 		for _, e := range t.Edges() {
+// 			goalA := NewGoal(e.A, radius, loiter)
+// 			goalB := NewGoal(e.B, radius, loiter)
+// 			g.AddConnection(goalA, goalB)
+// 			if !g.IncludesGoal(goalA) {
+// 				g.AddGoal(goalA)
+// 			}
+// 			if !g.IncludesGoal(goalB) {
+// 				g.AddGoal(goalB)
+// 			}
+// 		}
+// 	}
+// 	return g
+// }
 
-// IncludesGoal checks if a goal is included in the graph already.
-func (g *GoalGraph) IncludesGoal(goal *Goal) bool {
-	for _, g := range g.Goals {
-		if g == goal {
-			return true
-		}
-	}
-	return false
-}
+// // IncludesGoal checks if a goal is included in the graph already.
+// func (g *GoalGraph) IncludesGoal(goal *Goal) bool {
+// 	for _, g := range g.Goals {
+// 		if g == goal {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-// AddGoal adds a goal to the graph.
-func (g *GoalGraph) AddGoal(goal *Goal) {
-	g.Goals = append(g.Goals, goal)
-}
+// // AddGoal adds a goal to the graph.
+// func (g *GoalGraph) AddGoal(goal *Goal) {
+// 	g.Goals = append(g.Goals, goal)
+// }
 
-// AddConnection adds a connection between two goals.
-func (g *GoalGraph) AddConnection(a, b *Goal) {
-	g.Connections = append(g.Connections, NewGoalEdge(a, b))
-}
+// // AddConnection adds a connection between two goals.
+// func (g *GoalGraph) AddConnection(a, b *Goal) {
+// 	g.Connections = append(g.Connections, NewGoalEdge(a, b))
+// }
 
-// GetConnectingGoals returns the goals that are connected to the given goal.
-func (g *GoalGraph) GetConnectingGoals(goal *Goal) []*Goal {
-	var goals []*Goal
-	for _, c := range g.Connections {
-		if c.A == goal {
-			goals = append(goals, c.B)
-		} else if c.B == goal {
-			goals = append(goals, c.A)
-		}
-	}
-	return goals
-}
+// // GetConnectingGoals returns the goals that are connected to the given goal.
+// func (g *GoalGraph) GetConnectingGoals(goal *Goal) []*Goal {
+// 	var goals []*Goal
+// 	for _, c := range g.Connections {
+// 		if c.A == goal {
+// 			goals = append(goals, c.B)
+// 		} else if c.B == goal {
+// 			goals = append(goals, c.A)
+// 		}
+// 	}
+// 	return goals
+// }
 
 // Path describes a list of goals in a specific order
 type Path struct {
@@ -98,8 +98,9 @@ func (p *Path) GetNextGoal() *Goal {
 	if len(p.goals) == 0 {
 		return nil
 	}
+	returnValue := p.goals[0]
 	p.goals = p.goals[1:]
-	return p.goals[0]
+	return returnValue
 }
 
 // GetCurrentGoal returns the current goal in the path.

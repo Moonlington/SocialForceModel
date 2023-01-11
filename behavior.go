@@ -1,9 +1,11 @@
 package main
 
 import (
+	"math"
 	"math/rand"
 
 	"github.com/faiface/pixel"
+	"golang.org/x/exp/slices"
 )
 
 // Behavior defines the behavior of a person.
@@ -125,21 +127,23 @@ func (b *WanderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
 	return b.goalBehavior.GetTarget(p, dt)
 }
 
+func lineCollidesObstacles(A, B pixel.Vec, obstacles []*Obstacle) bool {
+	for _, obstacle := range obstacles {
+		if obstacle.Inner {
+			continue
+		}
+		if obstacle.IntersectLine(pixel.L(A, B)).Len() > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // ChooseNextWanderLocation chooses the next wander location.
 func (b *WanderBehavior) ChooseNextWanderLocation(p *Person) *Goal {
 	var possibleGoals []*Goal
 	for _, goal := range b.WanderGoals {
-		intersects := false
-		for _, obstacle := range b.Obstacles {
-			if obstacle.Inner {
-				continue
-			}
-			if obstacle.IntersectLine(pixel.L(p.Position, goal.Target)).Len() > 0 {
-				intersects = true
-				break
-			}
-		}
-		if !intersects {
+		if !lineCollidesObstacles(p.Position, goal.Target, b.Obstacles) {
 			possibleGoals = append(possibleGoals, goal)
 		}
 	}
@@ -149,25 +153,145 @@ func (b *WanderBehavior) ChooseNextWanderLocation(p *Person) *Goal {
 	return possibleGoals[rand.Intn(len(possibleGoals))]
 }
 
-type PathfinderBehavior struct {
-	goalGraph   *GoalGraph
-	currentPath *Path
-	obstacles   []*Obstacle
+// PathBehavior defines the behavior of a person that follows a path.
+type PathBehavior struct {
+	Path         *Path
+	CurrentGoal  *Goal
+	GoalBehavior *GoalBehavior
 }
 
-func NewPathfinderBehavior(goalGraph *GoalGraph) *PathfinderBehavior {
-	return &PathfinderBehavior{goalGraph: goalGraph}
+// NewPathBehavior creates a new path behavior.
+func NewPathBehavior(path *Path) *PathBehavior {
+	return &PathBehavior{Path: path, GoalBehavior: NewGoalBehavior(nil)}
 }
 
-// SelectRandomGoal randomly selects a goal from the goal graph.
-func (b *PathfinderBehavior) SelectRandomGoal() *Goal {
-	return b.goalGraph.Goals[rand.Intn(len(b.goalGraph.Goals))]
-}
-
-// PathfindToGoal uses A* algorithm to find a path to a given goal from where the person is located
-func (b *PathfinderBehavior) PathfindToGoal(p *Person, goal *Goal) *Path {
-	if b.currentPath != nil && b.currentPath.GetFinishGoal() == goal {
-		return b.currentPath
+// GetTarget gets the target of the behavior.
+func (b *PathBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
+	if b.CurrentGoal == nil || b.GoalBehavior.HasLoitered() {
+		b.GoalBehavior.LoiterTime = 0
+		if b.Path.Empty() {
+			return b.GoalBehavior.GetTarget(p, dt)
+		}
+		b.CurrentGoal = b.Path.GetNextGoal()
+		b.GoalBehavior.SetGoal(b.CurrentGoal)
 	}
-	return b.currentPath
+	return b.GoalBehavior.GetTarget(p, dt)
+}
+
+// SetPath sets the path of the behavior.
+func (b *PathBehavior) SetPath(path *Path) {
+	b.Path = path
+}
+
+// PathfinderBehavior defines the behavior of a person that pathfinds between points using the triangulation
+type PathfinderBehavior struct {
+	Triangulation *Triangulation
+	CurrentTarget pixel.Vec
+	PathBehavior  *PathBehavior
+	Obstacles     []*Obstacle
+	TimeWaited    float64
+}
+
+// NewPathfinderBehavior creates a new pathfinder behavior.
+func NewPathfinderBehavior(triangulation *Triangulation, obstacles []*Obstacle) *PathfinderBehavior {
+	return &PathfinderBehavior{
+		Triangulation: triangulation,
+		CurrentTarget: pixel.Vec{},
+		PathBehavior:  NewPathBehavior(nil),
+		Obstacles:     obstacles,
+		TimeWaited:    0,
+	}
+}
+
+// GetTarget gets the target of the behavior.
+func (b *PathfinderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
+	b.TimeWaited += dt
+	if b.CurrentTarget == pixel.ZV || (b.PathBehavior.GoalBehavior.HasLoitered() && b.PathBehavior.Path.Empty()) || b.TimeWaited > 30 {
+		b.CurrentTarget = b.Triangulation.Points()[rand.Intn(len(b.Triangulation.Points()))]
+		b.PathBehavior.SetPath(AStar(p.Position, b.CurrentTarget, b.Triangulation, b.Obstacles))
+		b.TimeWaited = 0
+	}
+	// fmt.Println(b.TimeWaited)
+	return b.PathBehavior.GetTarget(p, dt)
+}
+
+// AStar finds a path between two points using the A* algorithm.
+func AStar(start, end pixel.Vec, triangulation *Triangulation, obstacles []*Obstacle) *Path {
+	open := []pixel.Vec{}
+	cameFrom := map[pixel.Vec]pixel.Vec{}
+
+	var closestToStart pixel.Vec
+	for _, v := range triangulation.Points() {
+		if start.To(v).Len() < start.To(closestToStart).Len() || closestToStart == pixel.ZV {
+			closestToStart = v
+		}
+	}
+	open = append(open, closestToStart)
+
+	gScore := map[pixel.Vec]float64{}
+	gScore[closestToStart] = 0
+
+	fScore := map[pixel.Vec]float64{}
+	fScore[closestToStart] = end.To(closestToStart).Len()
+
+	for len(open) > 0 {
+		current := getLowestFCost(open, fScore)
+		if current.To(end).Len() < 10 {
+			return reconstructPath(cameFrom, end)
+		}
+		for i, v := range open {
+			if v == current {
+				open = append(open[:i], open[i+1:]...)
+				break
+			}
+		}
+		for _, v := range triangulation.GetConnectingPoints(current) {
+			if lineCollidesObstacles(current, v, obstacles) {
+				continue
+			}
+			t_gScore := gScore[current] + current.To(v).Len()
+			g, ok := gScore[v]
+			if !ok {
+				g = math.Inf(1)
+				gScore[v] = g
+			}
+			if t_gScore < g {
+				cameFrom[v] = current
+				gScore[v] = t_gScore
+				fScore[v] = t_gScore + end.To(v).Len()
+				if !slices.Contains(open, v) {
+					open = append(open, v)
+				}
+			}
+
+		}
+	}
+	panic("No path!")
+}
+
+func reconstructPath(cameFrom map[pixel.Vec]pixel.Vec, current pixel.Vec) *Path {
+	path := NewPath([]*Goal{NewGoal(current, 100, 10)})
+	next := current
+
+	for {
+		v, ok := cameFrom[next]
+		if !ok {
+			break
+		}
+		path.goals = append([]*Goal{NewGoal(v, 50, 0)}, path.goals...)
+		next = v
+	}
+	return path
+}
+
+func getLowestFCost(open []pixel.Vec, fScore map[pixel.Vec]float64) pixel.Vec {
+	var lowest pixel.Vec
+	var lowestScore float64 = math.Inf(1)
+	for _, v := range open {
+		if lowestScore > fScore[v] {
+			lowest = v
+			lowestScore = fScore[v]
+		}
+	}
+	return lowest
 }
