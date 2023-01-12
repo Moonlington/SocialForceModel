@@ -228,6 +228,7 @@ func (b *PathfinderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
 		b.CurrentTarget = b.Triangulation.Points()[rand.Intn(len(b.Triangulation.Points()))]
 		b.PathBehavior.SetPath(AStar(p.Position, b.CurrentTarget, b.Triangulation, b.Obstacles))
 		b.TimeWaited = 0
+		p.timeSinceLastGoal = 0
 	}
 	return b.PathBehavior.GetTarget(p, dt)
 }

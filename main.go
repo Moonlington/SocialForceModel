@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -12,10 +14,12 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [64]*Person
+var people [128]*Person
 var obstacles []*Obstacle
 var edges []*Obstacle
 var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](10, 5, -900, 900, -400, 400)
+
+var secondsFromStart float64
 
 var triangulation *Triangulation
 
@@ -59,11 +63,12 @@ func run() {
 		imd.Clear()
 
 		// dt := time.Since(last).Seconds()
-		dt := time.Second.Seconds() / 60
+		dt := 3 * time.Second.Seconds() / 60
 		// last = time.Now()
+		secondsFromStart += dt
 
 		// p.update(dt, people[:], obstacles[:])
-		updateAndDrawPeople(win, imd, 2*dt)
+		updateAndDrawPeople(win, imd, dt)
 
 		emptybins.Update()
 
@@ -73,9 +78,31 @@ func run() {
 
 		// triangulation.Draw(imd)
 
+		writeToData()
+
 		win.Clear(colornames.Black)
 		imd.Draw(win)
 		win.Update()
+	}
+	file, err := os.Create("data.csv")
+	if err != nil {
+		panic("wtf file")
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	writer.WriteAll(data)
+}
+
+var data [][]string
+
+func writeToData() {
+	for _, person := range people {
+		personData := []string{}
+		personData = append(personData, fmt.Sprintf("%d", person.id), fmt.Sprintf("%f", secondsFromStart), fmt.Sprintf("%f", person.Position.X), fmt.Sprintf("%f", person.Position.Y), fmt.Sprintf("%t", person.Position.Y >= 170 || person.Position.Y <= -170))
+		data = append(data, personData)
 	}
 }
 
@@ -132,8 +159,8 @@ func createPeople() {
 		people[i].Behavior = NewPathfinderBehavior(triangulation, obstacles)
 	}
 
-	amount := 1
-	if len(people) > amount+1 {
+	amount := 3
+	if len(people) > 2*amount+2 {
 		for i := 0; i < amount; i++ {
 			people[i].Color = colornames.Darkcyan
 			people[i].Behavior = NewFollowerBehavior(people[amount+1], obstacles)
@@ -159,6 +186,7 @@ func createObstaclesAndEdges() {
 	obstacles = append(obstacles, newObstacle(pixel.R(-890, -390, 890, -200), false))
 	obstacles = append(obstacles, newObstacle(pixel.R(-150, -100, 150, 100), false))
 	obstacles = append(obstacles, newObstacle(pixel.R(-890, -390, 890, 390), true))
+	// obstacles = append(obstacles, newObstacle(pixel.R(-700, -5, -300, 5), false))
 
 	edges = append(edges, newObstacle(pixel.R(-890, 200, 890, 390), false))
 	edges = append(edges, newObstacle(pixel.R(-890, -390, 890, -200), false))

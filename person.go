@@ -149,11 +149,11 @@ func (p *Person) edgeForce(edges []*Obstacle) pixel.Vec {
 		}
 	}
 
-	if minDistVec.Len() > p.wallThreshold*5 {
+	if minDistVec.Len() > p.wallThreshold*10 {
 		return pixel.V(0, 0)
 	}
 
-	fmax := p.Mass * 1024. * p.getAlpha()
+	fmax := p.Mass * 2048. * p.getAlpha()
 	s := minDistVec.Unit()
 	return s.Scaled(-fmax * (1 / (1 + math.Pow(minDistVec.Len()/p.Radius, 2))))
 }
