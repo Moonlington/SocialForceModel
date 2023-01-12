@@ -60,6 +60,11 @@ func (b *GoalBehavior) HasLoitered() bool {
 	return b.LoiterTime > b.goal.LoiterAfter
 }
 
+// Arrived returns true if the person has arrived at the goal.
+func (b *GoalBehavior) Arrived() bool {
+	return b.closeEnough
+}
+
 // FollowerBehavior defines the behavior of a person that follows a person.
 type FollowerBehavior struct {
 	Target       *Person
@@ -139,6 +144,18 @@ func lineCollidesObstacles(A, B pixel.Vec, obstacles []*Obstacle) bool {
 	return false
 }
 
+func pointInObstacle(p pixel.Vec, obstacles []*Obstacle) bool {
+	for _, obstacle := range obstacles {
+		if obstacle.Inner {
+			continue
+		}
+		if obstacle.Contains(p) {
+			return true
+		}
+	}
+	return false
+}
+
 // ChooseNextWanderLocation chooses the next wander location.
 func (b *WanderBehavior) ChooseNextWanderLocation(p *Person) *Goal {
 	var possibleGoals []*Goal
@@ -181,6 +198,7 @@ func (b *PathBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
 // SetPath sets the path of the behavior.
 func (b *PathBehavior) SetPath(path *Path) {
 	b.Path = path
+	b.CurrentGoal = nil
 }
 
 // PathfinderBehavior defines the behavior of a person that pathfinds between points using the triangulation
@@ -206,12 +224,11 @@ func NewPathfinderBehavior(triangulation *Triangulation, obstacles []*Obstacle) 
 // GetTarget gets the target of the behavior.
 func (b *PathfinderBehavior) GetTarget(p *Person, dt float64) pixel.Vec {
 	b.TimeWaited += dt
-	if b.CurrentTarget == pixel.ZV || (b.PathBehavior.GoalBehavior.HasLoitered() && b.PathBehavior.Path.Empty()) || b.TimeWaited > 30 {
+	if b.CurrentTarget == pixel.ZV || (b.TimeWaited >= 60 && !b.PathBehavior.GoalBehavior.Arrived()) || (b.PathBehavior.GoalBehavior.HasLoitered() && b.PathBehavior.Path.Empty()) {
 		b.CurrentTarget = b.Triangulation.Points()[rand.Intn(len(b.Triangulation.Points()))]
 		b.PathBehavior.SetPath(AStar(p.Position, b.CurrentTarget, b.Triangulation, b.Obstacles))
 		b.TimeWaited = 0
 	}
-	// fmt.Println(b.TimeWaited)
 	return b.PathBehavior.GetTarget(p, dt)
 }
 
@@ -270,7 +287,7 @@ func AStar(start, end pixel.Vec, triangulation *Triangulation, obstacles []*Obst
 }
 
 func reconstructPath(cameFrom map[pixel.Vec]pixel.Vec, current pixel.Vec) *Path {
-	path := NewPath([]*Goal{NewGoal(current, 100, 10)})
+	path := NewPath([]*Goal{NewGoal(current, 100, random(10, 60))})
 	next := current
 
 	for {
@@ -278,7 +295,7 @@ func reconstructPath(cameFrom map[pixel.Vec]pixel.Vec, current pixel.Vec) *Path 
 		if !ok {
 			break
 		}
-		path.goals = append([]*Goal{NewGoal(v, 50, 0)}, path.goals...)
+		path.goals = append([]*Goal{NewGoal(v, 25, 0)}, path.goals...)
 		next = v
 	}
 	return path

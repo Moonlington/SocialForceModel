@@ -12,7 +12,7 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [128]*Person
+var people [64]*Person
 var obstacles []*Obstacle
 var edges []*Obstacle
 var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](10, 5, -900, 900, -400, 400)
@@ -63,7 +63,7 @@ func run() {
 		// last = time.Now()
 
 		// p.update(dt, people[:], obstacles[:])
-		updateAndDrawPeople(win, imd, 10*dt)
+		updateAndDrawPeople(win, imd, 2*dt)
 
 		emptybins.Update()
 
@@ -145,9 +145,9 @@ func createPeople() {
 
 func generateWanderLocations() []pixel.Vec {
 	var wanderLocations []pixel.Vec
-	for i := 0; i < 200; i++ {
-		wanderLocations = append(wanderLocations, pixel.V(random(400, 800), random(-180, 180)))
-		wanderLocations = append(wanderLocations, pixel.V(random(-800, -400), random(-180, 180)))
+	for i := 0; i < 50; i++ {
+		wanderLocations = append(wanderLocations, pixel.V(random(400, 800), random(-150, 150)))
+		wanderLocations = append(wanderLocations, pixel.V(random(-800, -400), random(-150, 150)))
 	}
 	wanderLocations = append(wanderLocations, pixel.V(-200, 170), pixel.V(200, 170))
 	wanderLocations = append(wanderLocations, pixel.V(-200, -170), pixel.V(200, -170))
