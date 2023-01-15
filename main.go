@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"math/rand"
 	"os"
@@ -14,7 +15,18 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var people [128]*Person
+var peopleAmount int
+var outputName string
+
+const maxTimeSpend time.Duration = time.Minute * 5
+const nudge = true
+
+func init() {
+	flag.IntVar(&peopleAmount, "a", 64, "Amount of people")
+	flag.StringVar(&outputName, "o", "data.csv", "Output for the file")
+}
+
+var people []*Person
 var obstacles []*Obstacle
 var edges []*Obstacle
 var emptybins *EmptyBin[*Person] = newEmptyBin[*Person](10, 5, -900, 900, -400, 400)
@@ -24,6 +36,7 @@ var secondsFromStart float64
 var triangulation *Triangulation
 
 func run() {
+	flag.Parse()
 	rand.Seed(time.Now().Unix())
 	cfg := pixelgl.WindowConfig{
 		Title:  "Sociophysics Group 3 - Social Force Model",
@@ -59,7 +72,7 @@ func run() {
 
 	// last := time.Now()
 
-	for !win.Closed() {
+	for !win.Closed() && secondsFromStart <= maxTimeSpend.Seconds() {
 		imd.Clear()
 
 		// dt := time.Since(last).Seconds()
@@ -84,7 +97,7 @@ func run() {
 		imd.Draw(win)
 		win.Update()
 	}
-	file, err := os.Create("data.csv")
+	file, err := os.Create(outputName)
 	if err != nil {
 		panic("wtf file")
 	}
@@ -121,8 +134,8 @@ func updateAndDrawPeople(win *pixelgl.Window, imd *imdraw.IMDraw, dt float64) {
 }
 
 func createPeople() {
-	for i := 0; i < len(people)/2; i++ {
-		people[i] = newPerson(i)
+	for i := 0; i < peopleAmount/2; i++ {
+		people = append(people, newPerson(i))
 		people[i].Position = pixel.V(random(-400, -800), random(-150, 150))
 		noCollision := true
 		for noCollision {
@@ -139,15 +152,15 @@ func createPeople() {
 		people[i].Behavior = NewPathfinderBehavior(triangulation, obstacles)
 	}
 
-	for i := len(people) / 2; i < len(people); i++ {
-		people[i] = newPerson(i)
+	for i := peopleAmount / 2; i < peopleAmount; i++ {
+		people = append(people, newPerson(i))
 
 		people[i].Color = colornames.Magenta
 		people[i].Position = pixel.V(random(800, 400), random(-150, 150))
 		noCollision := true
 		for noCollision {
 			noCollision = false
-			for j := len(people) / 2; j < i; j++ {
+			for j := peopleAmount / 2; j < i; j++ {
 				if people[i].Position.To(people[j].Position).Len() < people[i].Radius+people[j].Radius*1.1 {
 					people[i].Position = pixel.V(random(800, 400), random(-150, 150))
 					noCollision = true
@@ -159,25 +172,42 @@ func createPeople() {
 		people[i].Behavior = NewPathfinderBehavior(triangulation, obstacles)
 	}
 
-	amount := 3
-	if len(people) > 2*amount+2 {
+	amount := peopleAmount / 16
+	if peopleAmount > 2*amount+2 {
 		for i := 0; i < amount; i++ {
 			people[i].Color = colornames.Darkcyan
 			people[i].Behavior = NewFollowerBehavior(people[amount+1], obstacles)
-			people[i+len(people)/2].Color = colornames.Darkmagenta
-			people[i+len(people)/2].Behavior = NewFollowerBehavior(people[len(people)/2+amount+1], obstacles)
+			people[i+peopleAmount/2].Color = colornames.Darkmagenta
+			people[i+peopleAmount/2].Behavior = NewFollowerBehavior(people[peopleAmount/2+amount+1], obstacles)
 		}
 	}
 }
 
 func generateWanderLocations() []pixel.Vec {
 	var wanderLocations []pixel.Vec
-	for i := 0; i < 50; i++ {
-		wanderLocations = append(wanderLocations, pixel.V(random(400, 800), random(-150, 150)))
-		wanderLocations = append(wanderLocations, pixel.V(random(-800, -400), random(-150, 150)))
+	if nudge {
+		for i := 0; i < 50; i++ {
+			wanderLocations = append(wanderLocations, pixel.V(random(400, 800), random(-150, 150)))
+			wanderLocations = append(wanderLocations, pixel.V(random(-800, -400), random(-150, 150)))
+		}
+		wanderLocations = append(wanderLocations, pixel.V(-200, 170), pixel.V(200, 170))
+		wanderLocations = append(wanderLocations, pixel.V(-200, -170), pixel.V(200, -170))
+	} else {
+		for i := 0; i < 400; i++ {
+			test := pixel.V(random(-800, 800), random(-150, 150))
+			collides := false
+			for _, obstacle := range obstacles {
+				if obstacle.Contains(test) && !obstacle.Inner {
+					collides = true
+					break
+				}
+			}
+			if collides {
+				continue
+			}
+			wanderLocations = append(wanderLocations, test)
+		}
 	}
-	wanderLocations = append(wanderLocations, pixel.V(-200, 170), pixel.V(200, 170))
-	wanderLocations = append(wanderLocations, pixel.V(-200, -170), pixel.V(200, -170))
 	return wanderLocations
 }
 
